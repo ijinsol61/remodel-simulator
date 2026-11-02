@@ -22,9 +22,9 @@ globalThis.PREGENERATED_EXAMPLES = [
     // 직접 촬영한 원본에서 개인 물품만 정리 보정한 사진 (방 구조·시점·마감은 그대로)
     originalLabel: "원본 사진 (개인 물품 정리 보정)",
     styles: {
-      nordic:  { image: "examples/room1_nordic.jpg",  summary: "색채를 활용한 북유럽형 소형 침실. 의자식 식사, 별도 공부 공간, 밝은 목재와 컬러 포인트를 사용." },
-      minimal: { image: "examples/room1_minimal.jpg", summary: "통합 수납과 접이식 기능을 중심으로 바닥을 비운 미니멀 소형 침실." },
-      hanok:   { image: "examples/room1_hanok.jpg",   summary: "낮은 생활 높이, 소반, 목재 가구와 절제된 한국적 창호 디테일을 적용한 한옥모던 침실." }
+      nordic:  { image: "examples/room1_nordic.jpg",  summary: "색채를 활용한 북유럽형 소형 원룸. 의자식 식사, 별도 공부 공간, 밝은 목재와 컬러 포인트를 사용." },
+      minimal: { image: "examples/room1_minimal.jpg", summary: "통합 수납과 접이식 기능을 중심으로 바닥을 비운 미니멀 소형 원룸." },
+      hanok:   { image: "examples/room1_hanok.jpg",   summary: "낮은 생활 높이, 소반, 목재 가구와 절제된 한국적 창호 디테일을 적용한 한옥모던 원룸." }
     }
   }
   // 다음 사례: 1인가구 소형공간 사진이 준비되면 위와 같은 형식으로 추가
