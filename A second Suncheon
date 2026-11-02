@@ -1,0 +1,1635 @@
+(function () {
+// =====================================================================
+//  프롬프트·스타일 설정 파일
+//  화면(index.html)과 서버(api/remodel.js)가 모두 이 파일 하나를 씁니다.
+//  스타일 이름, 설명, AI에 보내는 문장을 바꾸고 싶으면 이 파일만 고치면 됩니다.
+//  (내 컴퓨터에서 index.html을 더블클릭해 열어도 동작하도록 일반 스크립트로 작성)
+//  주의: 브랜드명, 디자이너·작가 이름, 특정 제품명은 넣지 마세요(카피 위험).
+// =====================================================================
+
+const SCENARIOS = {
+  old: {
+    name: "노후주택 리모델링",
+    desc: "도배·바닥·조명 교체와 노후 마감 정리 중심",
+    prompt: "This is an old Korean house being renovated: apply fresh new wallpaper, new flooring, replaced lighting fixtures, and clean new baseboards and moldings",
+    row: ["노후 마감 정리", "얼룩·변색 벽면 재도배, 걸레받이·몰딩 교체, 형광등 철거"]
+  },
+  single: {
+    name: "1인가구 소형공간 활용",
+    desc: "수납 보강과 다기능 가구 중심",
+    prompt: "This is a small room for one person: use space-saving multifunctional furniture, a storage bed with drawers, wall-mounted shelves, built-in storage, and bright colors that make the room feel larger",
+    row: ["수납 보강", "벽 선반, 수납형 침대·스툴, 붙박이장, 벽부착 책상으로 바닥 면적 확보"]
+  }
+};
+
+const STYLES = {
+  nordic: {
+    name: "북유럽풍",
+    desc: "밝은 오크와 화이트, 패브릭의 따뜻한 질감",
+    sw: ["#f3f1ec", "#d8b88a", "#bfc1bd", "#93a58a"],
+    wall: "화이트 톤 실크 벽지",
+    floor: "라이트 오크 강마루",
+    light: "패브릭 펜던트 조명, 전구색 3000K",
+    window: "화이트 프레임 필름 마감, 린넨 쉬어 커튼",
+    furn: "원목 다리 패브릭 소파, 원형 원목 테이블, 실내 식물",
+    prompt: "Style: Scandinavian. White walls, light oak wood flooring, light grey fabric sofa with wooden legs, round oak coffee table, linen sheer curtains, green potted plants, warm 3000K pendant light, soft daylight"
+  },
+  minimal: {
+    name: "미니멀",
+    desc: "화이트와 연한 목재, 가구를 줄인 정돈된 공간",
+    sw: ["#f6f6f3", "#e6d9c3", "#e7e3db", "#b7b2a8"],
+    wall: "무광 화이트 도장",
+    floor: "애쉬 톤 광폭 강마루",
+    light: "매입 다운라이트, 주백색 4000K",
+    window: "화이트 프레임, 롤 블라인드",
+    furn: "다리 없는 로우 소파, 손잡이 없는 붙박이 수납",
+    prompt: "Style: minimalist. Matte white walls, pale ash wide plank flooring, low profile sofa, handleless built-in storage, recessed downlights, uncluttered surfaces, calm neutral palette"
+  },
+  hanok: {
+    name: "한옥모던",
+    desc: "한지 톤 벽, 목재 기둥·보, 마루와 창호 문양",
+    sw: ["#efe5d0", "#b07c48", "#7a5233", "#3f5f63"],
+    wall: "한지 톤 벽지, 목재 기둥·중방 몰딩",
+    floor: "짙은 마루 톤 강마루",
+    light: "한지 펜던트 조명, 2700K",
+    window: "목재 프레임, 띠살 창호 문양 필름",
+    furn: "낮은 평상형 좌식 가구, 소반, 반닫이 수납장",
+    prompt: "Style: modern Korean hanok inspired. Hanji paper textured walls, exposed dark wood posts and beams, warm honey wood maru flooring, traditional Korean ttisal lattice window pattern with hanji paper, low wooden platform seating, Korean soban low table, hanji pendant lamp, warm 2700K light"
+  }
+};
+
+const BASE_PROMPT =
+  "Remodel the interior shown in this photo. Keep the exact same room: same wall positions, same window and door positions and sizes, same ceiling and ceiling height, same camera position, lens, angle and perspective, same framing. Only change wall and floor finishes, furniture, storage and lighting. Remove clutter, cables, clothes and any personal items. If any person or pet appears in the photo, remove it and show the empty room. Any surfaces must be plain: no printed words, signs or logos anywhere. Photorealistic interior photograph, natural daylight, realistic materials";
+
+const NEG_PROMPT =
+  "people, persons, human bodies, faces, hands, text, letters, logos, watermarks, signatures, brand names, paintings, posters, artwork, picture frames with images, any nudity or suggestive content, moved windows, removed walls, changed room shape, extra doors, distorted perspective";
+
+const NEG_HANOK = ", Japanese style elements, tatami mats, shoji screens";
+
+// AI에 실제로 보내는 최종 문장
+function buildPrompt(scenario, style) {
+  const neg = NEG_PROMPT + (style === "hanok" ? NEG_HANOK : "");
+  return `${BASE_PROMPT}.\n${SCENARIOS[scenario].prompt}.\n${STYLES[style].prompt}.\nDo not include or create any of the following: ${neg}.`;
+}
+
+
+// 3D 렌더 → 실사 사진 (Gemini 앱 등 이미지 AI에 붙여넣는 문장)
+const RENDER_BASE =
+  "The attached image is a simple 3D massing render of a remodeled room. Turn it into a photorealistic interior photograph taken with a full-frame camera. Keep EXACTLY the same camera angle, perspective, room shape, wall, window and door positions, ceiling height, and the same position, size and colour of every piece of furniture. Replace the boxy placeholder shapes with realistic, well-made furniture of the same footprint, adding natural detail: wood grain, fabric texture and soft folds on bedding and cushions, subtle reflections on the floor, realistic soft daylight from the window and warm light from the lamps, soft shadows. Do not add or remove furniture";
+const RENDER_NEG =
+  "people, persons, faces, hands, text, letters, logos, watermarks added to the scene, brand names, recognizable branded products, copies of famous paintings or photographs (a framed print may only show simple abstract colour blocks), any nudity or suggestive content, moved windows, changed room shape, extra doors, distorted perspective, cartoon or illustration look";
+function buildRenderPrompt(scenario, style) {
+  const neg = RENDER_NEG + (style === "hanok" ? NEG_HANOK : "");
+  return `${RENDER_BASE}.\n${SCENARIOS[scenario].prompt}.\n${STYLES[style].prompt}.\nDo not include: ${neg}.`;
+}
+
+globalThis.REMODEL = { SCENARIOS, STYLES, BASE_PROMPT, NEG_PROMPT, NEG_HANOK, buildPrompt, buildRenderPrompt };
+})();
+
+# 공간 리모델링 시뮬레이터 (GitHub Pages 공개용)
+
+순천제일대학교 건축인테리어과 경진대회 출품작.
+방 사진 → 시나리오·스타일 선택 → ChatGPT로 변환 → Before/After·4안 비교.
+
+- 이 저장소에는 화면 파일만 있습니다 (API 키·서버 없음).
+- 결과 이미지는 "AI 생성 이미지 · 참고용, 실제 시공은 전문가 검토 필요"로 표기됩니다.
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>공간 리모델링 시뮬레이터</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* 레이아웃: 왼쪽 단계별 조작 패널 + 오른쪽 도면식 Before/After 뷰어, 아래 변환 기준표와 프롬프트 */
+:root{
+  --paper:#eceeea;
+  --surface:#fafbf8;
+  --ink:#1c2427;
+  --muted:#5b676a;
+  --line:#d2d8d2;
+  --accent:#1f5d58;
+  --accent-ink:#ffffff;
+  --accent-soft:#dbe9e5;
+  --warn:#8a5a12;
+  --warn-soft:#f6ead2;
+  --font-body:"IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --font-mono:"IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#121819; --surface:#1a2223; --ink:#e4eae8; --muted:#97a3a2; --line:#2c3738;
+    --accent:#62b5aa; --accent-ink:#0b1514; --accent-soft:#1d3532; --warn:#e2b56a; --warn-soft:#2f2717;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#121819; --surface:#1a2223; --ink:#e4eae8; --muted:#97a3a2; --line:#2c3738;
+  --accent:#62b5aa; --accent-ink:#0b1514; --accent-soft:#1d3532; --warn:#e2b56a; --warn-soft:#2f2717;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--paper);color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.6}
+h1,h2,h3{text-wrap:balance;margin:0;line-height:1.3}
+.wrap{max-width:1240px;margin:0 auto;padding:20px 20px 40px;display:flex;flex-direction:column;gap:18px}
+header.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px;border-bottom:2px solid var(--ink);padding-bottom:12px}
+header.top h1{font-size:26px;font-weight:700;letter-spacing:-0.01em}
+header.top .sub{font-size:13px;color:var(--muted);margin-top:2px}
+.demo-pill{font-family:var(--font-mono);font-size:12px;border:1px solid var(--warn);color:var(--warn);background:var(--warn-soft);padding:4px 10px;border-radius:999px;white-space:nowrap}
+.main{display:grid;grid-template-columns:360px 1fr;gap:18px;align-items:start}
+@media (max-width:920px){.main{grid-template-columns:1fr}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:18px}
+.step{display:flex;flex-direction:column;gap:10px}
+.step-h{display:flex;align-items:center;gap:10px}
+.num{font-family:var(--font-mono);font-size:12px;font-weight:500;width:24px;height:24px;border-radius:50%;background:var(--ink);color:var(--paper);display:grid;place-items:center;flex:none}
+.step-h h2{font-size:16px;font-weight:700}
+.hint{font-size:12.5px;color:var(--muted);margin:0}
+.samples{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.sample{appearance:none;border:1px solid var(--line);background:var(--paper);border-radius:8px;padding:6px;cursor:pointer;text-align:left;color:var(--ink);font:inherit;display:flex;flex-direction:column;gap:4px}
+.sample canvas{width:100%;height:auto;border-radius:4px;display:block}
+.sample span{font-size:12.5px;font-weight:500}
+.sample[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)}
+.drop{border:1.5px dashed var(--line);border-radius:8px;padding:12px;text-align:center;font-size:13px;color:var(--muted);cursor:pointer;background:var(--paper)}
+.drop.on{border-color:var(--accent);color:var(--ink)}
+.drop strong{color:var(--accent)}
+.drop input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.opts{display:flex;flex-direction:column;gap:8px}
+.opt{position:relative;display:block;cursor:pointer}
+.opt input{position:absolute;opacity:0;inset:0;margin:0;cursor:pointer}
+.opt .card{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:var(--paper)}
+.opt .dot{width:16px;height:16px;border-radius:50%;border:1.5px solid var(--muted);flex:none;margin-top:3px;display:grid;place-items:center}
+.opt input:checked + .card{border-color:var(--accent);background:var(--accent-soft)}
+.opt input:checked + .card .dot{border-color:var(--accent)}
+.opt input:checked + .card .dot::after{content:"";width:8px;height:8px;border-radius:50%;background:var(--accent)}
+.opt input:focus-visible + .card{outline:2px solid var(--accent);outline-offset:2px}
+.opt b{display:block;font-size:14.5px}
+.opt small{display:block;font-size:12.5px;color:var(--muted);line-height:1.45}
+.swatches{display:flex;gap:4px;margin-top:6px}
+.swatches i{width:18px;height:10px;border-radius:2px;border:1px solid rgba(0,0,0,.12)}
+.go{appearance:none;border:0;border-radius:8px;background:var(--accent);color:var(--accent-ink);font:inherit;font-weight:700;font-size:15.5px;padding:13px 16px;cursor:pointer}
+.go:hover{filter:brightness(1.06)}
+.go:disabled{opacity:.55;cursor:progress}
+button:focus-visible,.sample:focus-visible,.drop:focus-within{outline:2px solid var(--accent);outline-offset:2px}
+.codebox{display:flex;flex-direction:column;gap:4px;font-size:13px}
+.codebox[hidden]{display:none}
+.codebox input{font:inherit;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--paper);color:var(--ink)}
+.save{appearance:none;border:1px solid var(--line);border-radius:8px;background:var(--paper);color:var(--ink);font:inherit;font-weight:500;padding:10px 16px;cursor:pointer}
+.save:disabled{opacity:.5;cursor:not-allowed}
+.chip.err{border-color:#b3452e;color:#b3452e;background:transparent}
+.ba .badge.ai{background:#1c2427;color:#fff}
+.ba .guide{clip-path:inset(0 calc(100% - var(--pos,50%)) 0 0);pointer-events:none}
+.ba canvas[hidden]{display:none}
+.toggle{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);cursor:pointer}
+.toggle[hidden]{display:none}
+.ainote{display:flex;flex-direction:column;gap:8px;font-size:13.5px;background:var(--accent-soft);border-radius:8px;padding:10px 12px}
+.ainote[hidden]{display:none}
+.ainote .conds{display:flex;flex-wrap:wrap;gap:6px}
+.ainote .conds span{font-size:12.5px;border:1px solid var(--warn);color:var(--warn);border-radius:4px;padding:1px 8px;background:var(--surface)}
+.note{font-size:12px;color:var(--muted);border-top:1px solid var(--line);padding-top:12px;margin:0}
+
+.viewer-col{display:flex;flex-direction:column;gap:18px;min-width:0}
+.exbox{margin-top:10px;border-top:1px dashed var(--line);padding-top:8px}.exbox .lbl{margin:0 0 6px}.exlocal summary{cursor:pointer;font-size:12.5px;margin-top:6px}.exlocal label.copy{display:inline-block;margin:4px 4px 0 0;cursor:pointer}
+.retry{margin-left:6px;padding:3px 10px;border-radius:4px;border:1px solid var(--accent,#2a6d5f);background:#fff;cursor:pointer;font-size:12.5px}
+.aikit{border-top:1px dashed var(--line);padding-top:8px;font-size:13px}.aikit .akh{display:flex;gap:8px;flex-wrap:wrap;align-items:baseline}.aikit .akh span{color:#5b676a;font-size:12px}
+.aikit ol{margin:6px 0 0;padding-left:18px;display:flex;flex-direction:column;gap:6px}.aikit li{line-height:1.6}.aikit label.copy{cursor:pointer;display:inline-block}.kitmsg{color:#2a6d5f;font-size:12.5px;margin-top:4px}
+.qgrid .qact{display:flex;gap:4px;margin-top:2px}.qgrid .qact .copy{font-size:11.5px;padding:2px 7px;cursor:pointer}
+.quad .qhead{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}.quad h3{margin:0;font-size:15px}.qbtns{display:flex;gap:6px}
+.qgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.qgrid figure{margin:0}.qgrid canvas{width:100%;height:auto;display:block;background:#222;border-radius:2px}
+.qgrid figcaption{display:flex;justify-content:space-between;gap:6px;font-size:13px;padding:4px 2px}.qgrid figcaption span{color:#5b676a;font-size:12px}
+.sheet{background:var(--surface);border:1px solid var(--ink);border-radius:4px;padding:10px;display:flex;flex-direction:column;gap:8px}
+.status{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:13px}
+.chip{border:1px solid var(--line);background:var(--paper);border-radius:999px;padding:2px 10px;font-size:12.5px}
+.chip.stale{border-color:var(--warn);color:var(--warn);background:var(--warn-soft)}
+.ba{position:relative;width:100%;aspect-ratio:3/2;overflow:hidden;background:#222;touch-action:none;user-select:none;border-radius:2px}
+.ba canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.ba .after{clip-path:inset(0 0 0 var(--pos,50%))}
+.ba .bar{position:absolute;top:0;bottom:0;left:var(--pos,50%);width:2px;margin-left:-1px;background:#fff;box-shadow:0 0 0 1px rgba(0,0,0,.25);pointer-events:none}
+.ba .knob{position:absolute;top:50%;left:var(--pos,50%);width:40px;height:40px;margin:-20px 0 0 -20px;border-radius:50%;background:#fff;color:#1c2427;display:grid;place-items:center;font-family:var(--font-mono);font-size:13px;box-shadow:0 1px 6px rgba(0,0,0,.3);pointer-events:none}
+.ba .tag{position:absolute;top:10px;font-family:var(--font-mono);font-size:11.5px;letter-spacing:.08em;padding:3px 8px;border-radius:3px;background:rgba(20,26,27,.78);color:#fff;pointer-events:none}
+.ba .tag.l{left:10px}.ba .tag.r{right:10px}
+.ba .badge{position:absolute;right:10px;bottom:10px;font-size:11.5px;padding:3px 9px;border-radius:3px;background:rgba(255,255,255,.9);color:#1c2427;pointer-events:none;font-weight:500}
+.ba input[type=range]{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:ew-resize;margin:0}
+.ba .busy{position:absolute;inset:0;background:rgba(18,24,25,.72);color:#fff;display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px;font-size:14px}
+.ba .busy.on{display:flex}
+.ba .track{width:min(320px,70%);height:4px;background:rgba(255,255,255,.2);border-radius:2px;overflow:hidden}
+.ba .track i{display:block;height:100%;width:0;background:#7fd1c5;transition:width .35s ease}
+.ba .empty[hidden]{display:none}
+.ba .empty{position:absolute;right:0;top:0;bottom:0;width:50%;display:flex;align-items:center;justify-content:center;padding:20px;text-align:center;color:#fff;font-size:13.5px;pointer-events:none}
+.titleblock{display:grid;grid-template-columns:auto 1fr auto auto;border:1px solid var(--ink);font-family:var(--font-mono);font-size:11.5px}
+.titleblock div{padding:5px 9px;border-right:1px solid var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.titleblock div:last-child{border-right:0}
+@media (max-width:560px){.titleblock{grid-template-columns:1fr 1fr}.titleblock div:nth-child(2){border-right:0}.titleblock div:nth-child(-n+2){border-bottom:1px solid var(--ink)}}
+
+.info{display:grid;grid-template-columns:1.1fr 1fr;gap:18px}
+@media (max-width:1100px){.info{grid-template-columns:1fr}}
+.card2{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.card2 h3{font-size:15px}
+table.spec{width:100%;border-collapse:collapse;font-size:13.5px}
+table.spec th,table.spec td{white-space:pre-line;text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+table.spec th{width:96px;color:var(--muted);font-weight:500;white-space:nowrap}
+.keep{display:flex;flex-wrap:wrap;gap:6px}
+.keep span{font-size:12.5px;border:1px solid var(--accent);color:var(--accent);border-radius:4px;padding:2px 8px}
+.prompt{font-family:var(--font-mono);font-size:12px;line-height:1.55;background:var(--paper);border:1px solid var(--line);border-radius:6px;padding:10px;white-space:pre-wrap;word-break:break-word;max-height:260px;overflow:auto;margin:0}
+.lbl{font-size:12px;color:var(--muted);font-weight:500;margin:0}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.copy{appearance:none;border:1px solid var(--line);background:var(--paper);color:var(--ink);font:inherit;font-size:12.5px;padding:4px 10px;border-radius:6px;cursor:pointer}
+footer{font-size:12.5px;color:var(--muted);border-top:1px solid var(--line);padding-top:12px;display:flex;flex-direction:column;gap:4px}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>공간 리모델링 시뮬레이터</h1>
+      <div class="sub">방 사진 한 장으로 리모델링 후 모습을 미리 확인합니다 · 순천제일대학교 건축인테리어과</div>
+    </div>
+    <span class="demo-pill" id="modePill">시연용 시제품 · AI 연결 전</span>
+  </header>
+
+  <div class="main">
+    <aside class="panel" aria-label="리모델링 설정">
+      <section class="step">
+        <div class="step-h"><span class="num">1</span><h2>사진 선택</h2></div>
+        <div class="samples" id="samples"></div>
+        <label class="drop" id="drop">
+          <input type="file" id="file" accept="image/*">
+          <strong>내 방 사진 올리기</strong><br>또는 여기로 끌어다 놓기
+        </label>
+        <p class="hint" id="photoHint">사람, 가족사진, 주소·송장이 보이지 않는 실내 사진을 올려 주세요. 정면에서 수평으로 찍은 사진이 가장 정확합니다. 사진은 이 브라우저 안에서만 처리됩니다.</p>
+        <div class="exbox">
+          <p class="lbl"><b>사전 생성 예시</b> · ChatGPT로 미리 만든 결과 (실시간 생성 아님)</p>
+          <div class="samples" id="exList"></div>
+          <details class="exlocal"><summary>ChatGPT 결과 이미지로 비교 화면 점검</summary>
+            <p class="hint">원본 사진과, 지금 고른 스타일로 ChatGPT에서 만든 결과를 차례로 고르면 '사전 생성 예시'로 표시됩니다. 서버로 보내지 않습니다.</p>
+            <label class="copy">① 원본 사진<input type="file" id="exBeforeFile" accept="image/*" hidden></label>
+            <label class="copy">② 결과 사진 (현재 스타일)<input type="file" id="exAfterFile" accept="image/*" hidden></label>
+          </details>
+        </div>
+      </section>
+
+      <section class="step">
+        <div class="step-h"><span class="num">2</span><h2>리모델링 시나리오</h2></div>
+        <div class="opts" id="scenarios"></div>
+      </section>
+
+      <section class="step">
+        <div class="step-h"><span class="num">3</span><h2>스타일</h2></div>
+        <div class="opts" id="styles"></div>
+      </section>
+
+      <div class="codebox" id="codebox" hidden>
+        <label for="code">시연 코드</label>
+        <input id="code" type="password" autocomplete="off" placeholder="팀에서 정한 코드">
+      </div>
+      <button class="go" id="go" type="button">리모델링 이미지 만들기</button>
+      <button class="save" id="save" type="button" disabled>비교 이미지 저장</button>
+      <p class="note">벽체, 창호, 문 위치와 천장고는 바꾸지 않고 마감재·가구·조명만 바꿉니다. 결과 이미지는 참고용이며 실제 시공은 전문가 검토가 필요합니다.</p>
+    </aside>
+
+    <div class="viewer-col">
+      <section class="sheet" aria-label="Before After 비교">
+        <div class="status" id="status"></div>
+        <label class="toggle" id="guideWrap" hidden><input type="checkbox" id="guideOn" checked> AI가 인식한 구조선 보기 (Before 쪽)</label>
+        <label class="toggle" id="realWrap" hidden><input type="checkbox" id="realOn" checked> After를 실사 렌더로 보기 (광선 추적 · 간접광 · 부드러운 그림자)</label>
+        <div class="ba" id="ba">
+          <canvas id="cvBefore" width="1200" height="800"></canvas>
+          <canvas id="cvGuide" class="guide" width="1200" height="800" hidden></canvas>
+          <canvas id="cvAfter" class="after" width="1200" height="800"></canvas>
+          <div class="empty" id="empty" hidden>3단계까지 고른 뒤<br>[리모델링 이미지 만들기]를 눌러 주세요</div>
+          <div class="bar"></div><div class="knob" aria-hidden="true">◀▶</div>
+          <span class="tag l">BEFORE</span><span class="tag r">AFTER</span>
+          <span class="badge" id="badge">데모 렌더 · AI 연결 전</span>
+          <input type="range" id="pos" min="0" max="100" value="50" aria-label="Before After 비교 위치">
+          <div class="busy" id="busy" aria-live="polite"><div id="busyText">원본 구조 분석 중</div><div class="track"><i id="busyBar"></i></div></div>
+        </div>
+        <div class="titleblock" id="titleblock"></div>
+        <div class="aikit" id="aikit">
+          <div class="akh"><b>AI 변환 · 무료 (ChatGPT 앱)</b><span>서버·API 키 없이, 내 ChatGPT 계정으로 변환합니다</span></div>
+          <ol>
+            <li><button class="copy" id="kitGet" type="button">① 변환 재료 받기</button> 내 방 사진(JPG)이 저장되고, 고른 시나리오·스타일의 지시문이 복사됩니다</li>
+            <li><a href="https://chatgpt.com" target="_blank" rel="noopener">② chatgpt.com</a> 새 대화에서 사진을 첨부하고 지시문을 붙여넣어 보냅니다 (무료 계정은 하루 몇 장 제한)</li>
+            <li><label class="copy" for="kitFile">③ 결과 이미지 올리기</label><input type="file" id="kitFile" accept="image/*" hidden> ChatGPT가 만든 사진이 After에 표시되고 "AI 생성 · ChatGPT" 표기가 붙습니다</li>
+          </ol>
+          <div class="kitmsg" id="kitMsg" aria-live="polite"></div>
+        </div>
+      </section>
+      <section class="sheet quad" id="quad" aria-label="4안 비교">
+        <div class="qhead"><h3>4안 비교 · 같은 방, 같은 시점</h3><div class="qbtns"><button class="copy" id="qGo" type="button">4안 비교 만들기</button><button class="copy" id="qSave" type="button" disabled>4안 이미지 저장</button></div></div>
+        <p class="lbl" id="qNote">위에서 결과를 만든 뒤 누르면 현재 상태와 세 가지 스타일을 한 화면에 나란히 보여줍니다. 실사 렌더는 스타일마다 차례로 계산됩니다.</p>
+        <div class="qgrid">
+          <figure><canvas id="q0" width="1200" height="800"></canvas><figcaption><b>현재 상태</b><span id="qs0"></span></figcaption></figure>
+          <figure><canvas id="q1" width="1200" height="800"></canvas><figcaption><b>북유럽풍</b><span id="qs1"></span></figcaption><div class="qact"><button class="copy" data-qk="1" type="button">변환 재료</button><label class="copy">ChatGPT 결과 올리기<input type="file" accept="image/*" data-qu="1" hidden></label></div></figure>
+          <figure><canvas id="q2" width="1200" height="800"></canvas><figcaption><b>미니멀</b><span id="qs2"></span></figcaption><div class="qact"><button class="copy" data-qk="2" type="button">변환 재료</button><label class="copy">ChatGPT 결과 올리기<input type="file" accept="image/*" data-qu="2" hidden></label></div></figure>
+          <figure><canvas id="q3" width="1200" height="800"></canvas><figcaption><b>한옥모던</b><span id="qs3"></span></figcaption><div class="qact"><button class="copy" data-qk="3" type="button">변환 재료</button><label class="copy">ChatGPT 결과 올리기<input type="file" accept="image/*" data-qu="3" hidden></label></div></figure>
+        </div>
+      </section>
+
+      <div class="info">
+        <section class="card2">
+          <h3 id="specTitle">적용된 변환 기준</h3>
+          <div class="ainote" id="aiNote" hidden></div>
+          <table class="spec"><tbody id="spec"></tbody></table>
+          <p class="lbl">바꾸지 않는 항목</p>
+          <div class="keep"><span>벽체 위치</span><span>창호 위치·크기</span><span>문 위치</span><span>천장고</span><span>촬영 시점</span></div>
+        </section>
+        <section class="card2">
+          <div class="row"><h3>이미지 생성 프롬프트</h3><button class="copy" id="copy" type="button">복사</button></div>
+          <p class="lbl" id="promptLbl">시나리오와 스타일을 고르면 아래 문장이 자동으로 조합됩니다. 내 방 사진과 함께 ChatGPT에 넣으면 같은 방 구조의 리모델링 사진이 됩니다. 문장은 prompts.js 파일에서 고칠 수 있습니다.</p>
+          <pre class="prompt" id="prompt"></pre>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <span>이 링크에서는 Claude가 사진의 벽·창·문 위치와 원근을 분석하고, 그 구조 그대로 3D 장면을 세운 뒤 브라우저 안에서 광선 추적으로 실사 렌더를 만듭니다(창 빛·간접광·부드러운 그림자, 30초~2분, 무료). 외부 이미지는 쓰지 않습니다.</span>
+    <span>AI가 관여한 결과에는 화면과 저장 이미지에 AI 표시를 붙입니다(인공지능기본법 투명성 의무 대응).</span>
+    <span>AI 연결이 안 되거나 실패하면 예시 렌더(예시 방) 또는 색감 미리보기(내 사진)로 대신 보여드립니다.</span>
+  </footer>
+</div>
+
+<script src="prompts.js"></script>
+<script src="examples/examples.js"></script>
+<script>
+(function(){
+"use strict";
+if(!window.REMODEL){document.body.insertAdjacentHTML("afterbegin",'<p style="background:#b3452e;color:#fff;padding:12px;margin:0">prompts.js 파일을 찾지 못했습니다. index.html과 같은 폴더에 prompts.js가 있는지 확인해 주세요.</p>');return;}
+const {SCENARIOS,STYLES,buildPrompt,buildRenderPrompt}=window.REMODEL;
+const SAMPLES={
+  A:{name:"노후주택 거실",dwg:"A-01",dims:"W 3,600 × D 4,200 × CH 2,400 (mm)"},
+  B:{name:"원룸",dwg:"B-01",dims:"W 3,600 × D 4,200 × CH 2,400 (mm)"}
+};
+
+/* ---------- 그리기 도구 ---------- */
+let K=700,CX=600,CY=385,EYE=1200,XC=0,XL=-1800,XR=1800;const YC=2400,ZB=4200,ZF=480;
+const GEO0={K:700,CX:600,CY:385,EYE:1200,XC:0,XL:-1800,XR:1800};
+function setGeo(g){K=g.K;CX=g.CX;CY=g.CY;EYE=g.EYE;XC=g.XC;XL=g.XL;XR=g.XR;}
+let REC=null,TAG="";
+const P=(x,y,z)=>{const p=[CX+(x-XC)*K/z, CY-(y-EYE)*K/z];if(REC){p.w=[x,y,z];if(!REC.geo)REC.geo={K,CX,CY,EYE,XC,XL,XR};}return p;};
+function rgb(h){h=h.replace("#","");return[parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];}
+function shade(c,f){
+  if(c[0]!=="#")return c;
+  const k=v=>Math.max(0,Math.min(255,Math.round(f>1?v+(255-v)*(f-1)*1.6:v*f)));
+  const[r,g,b]=rgb(c);return`rgb(${k(r)},${k(g)},${k(b)})`;
+}
+function poly(ctx,pts,fill,stroke,lw){
+  if(REC){if(fill&&pts.every(p=>p.w))REC.items.push({k:"p",v:pts.map(p=>p.w),c:fill,tag:TAG});return;}
+  ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);
+  for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i][0],pts[i][1]);
+  ctx.closePath();
+  if(fill){ctx.fillStyle=fill;ctx.fill();}
+  if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lw||1;ctx.stroke();}
+}
+function line(ctx,a,b,c,lw){if(REC){if(a.w&&b.w&&TAG!=="nofloor"){const q=parseCol(c);if(q[3]<.2)return;let dax=0;for(let k=0;k<3;k++)if(Math.abs(a.w[k]-b.w[k])>1)dax++;if(dax>1)return;const m=x=>Math.round(255*(x*q[3]+.42*(1-q[3])));const A=a.w,B=b.w,e=4;
+    REC.items.push({k:"b",b:[Math.min(A[0],B[0])-e,Math.max(A[0],B[0])+e,Math.min(A[1],B[1])-e,Math.max(A[1],B[1])+e,Math.min(A[2],B[2])-e,Math.max(A[2],B[2])+e],c:`rgb(${m(q[0])},${m(q[1])},${m(q[2])})`,tag:""});}return;}ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.strokeStyle=c;ctx.lineWidth=lw||1;ctx.stroke();}
+function box(ctx,b,c,stroke){
+  if(REC){P(b[0],b[2],b[4]);REC.items.push({k:"b",b:b.slice(),c,tag:TAG});return;}
+  const[x0,x1,y0,y1,z0,z1]=b;const st=stroke===undefined?"rgba(0,0,0,.16)":stroke;
+  if(x1<XC)poly(ctx,[P(x1,y0,z0),P(x1,y0,z1),P(x1,y1,z1),P(x1,y1,z0)],shade(c,.84),st);
+  else if(x0>XC)poly(ctx,[P(x0,y0,z0),P(x0,y0,z1),P(x0,y1,z1),P(x0,y1,z0)],shade(c,.84),st);
+  if(y1<EYE)poly(ctx,[P(x0,y1,z0),P(x1,y1,z0),P(x1,y1,z1),P(x0,y1,z1)],shade(c,1.07),st);
+  else if(y0>EYE)poly(ctx,[P(x0,y0,z0),P(x1,y0,z0),P(x1,y0,z1),P(x0,y0,z1)],shade(c,.8),st);
+  poly(ctx,[P(x0,y0,z0),P(x1,y0,z0),P(x1,y1,z0),P(x0,y1,z0)],c,st);
+}
+function disc(ctx,cx,y,cz,r,fill,stroke){
+  if(REC){const v=[];for(let i=0;i<20;i++){const a=i/20*Math.PI*2;v.push([cx+Math.cos(a)*r,y,cz+Math.sin(a)*r]);}P(cx,y,cz);REC.items.push({k:"p",v,c:fill,tag:TAG});return;}
+  const l=P(cx-r,y,cz),rr=P(cx+r,y,cz),f=P(cx,y,cz-r),b=P(cx,y,cz+r);
+  ctx.beginPath();ctx.ellipse((l[0]+rr[0])/2,(f[1]+b[1])/2,Math.abs(rr[0]-l[0])/2,Math.max(1,Math.abs(f[1]-b[1])/2),0,0,Math.PI*2);
+  ctx.fillStyle=fill;ctx.fill();if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=1;ctx.stroke();}
+}
+function blob(ctx,p,r,c){if(REC)return;const g=ctx.createRadialGradient(p[0],p[1],0,p[0],p[1],r);g.addColorStop(0,c);g.addColorStop(1,c.replace(/[\d.]+\)$/,"0)"));ctx.fillStyle=g;ctx.beginPath();ctx.arc(p[0],p[1],r,0,Math.PI*2);ctx.fill();}
+function rng(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+function leaves(ctx,x,y,z,r,c){const s=K/z;const R=rng(Math.round(x+z));for(let i=0;i<9;i++){const a=R()*Math.PI*2,d=R()*r*.55;if(REC){REC.items.push({k:"s",o:[x+Math.cos(a)*d,y+Math.abs(Math.sin(a))*d*.9,z],r:r*.36,c:i%2?c:shade(c,.82),tag:""});continue;}const p=P(x+Math.cos(a)*d,y+Math.abs(Math.sin(a))*d*.9,z);ctx.beginPath();ctx.ellipse(p[0],p[1],r*.42*s,r*.3*s,a,0,Math.PI*2);ctx.fillStyle=i%2?c:shade(c,.82);ctx.fill();}}
+
+const PAL={
+  before:{wall:"#d8c89b",ceil:"#d6cfb6",floor:"#8b6a45",fl:"rgba(40,25,10,.35)",base:"#5a3e27",frame:"#9aa1a4",glass:["#b9c5c7","#a7b3b5"],fabric:"#6d4a34",wood:"#5b3d27",woodL:"#7a5a3e",white:"#cfc8b4",accent:"#7d6b5c"},
+  nordic:{wall:"#f3efe7",ceil:"#faf9f6",floor:"#c79c66",fl:"rgba(120,85,40,.22)",base:"#f5f4f0",frame:"#fbfbfa",glass:["#eaf2f4","#d2e0e5"],fabric:"#bfc1bd",wood:"#c39761",woodL:"#d9b98a",white:"#f6f4f0",accent:"#93a58a",accentWall:"#b8c3ad"},
+  minimal:{wall:"#f4f4f2",ceil:"#fbfbfa",floor:"#d8d4cc",fl:"rgba(90,85,75,.14)",base:"#f4f4f2",frame:"#f2f2f0",glass:["#eef4f6","#d9e5e9"],fabric:"#dedbd4",wood:"#bdb8ae",woodL:"#e6e3dc",white:"#efeeea",accent:"#8f8b84"},
+  hanok:{wall:"#eee3cd",ceil:"#e6d6b8",floor:"#ad7a46",fl:"rgba(70,40,15,.30)",base:"#6a4528",frame:"#6b4a2e",glass:["#f6efdf","#efe4cd"],fabric:"#d9cdb3",wood:"#7a5233",woodL:"#a8794d",white:"#f3efe6",accent:"#3f5f63"}
+};
+const WIN={A:[-700,700,900,2100],B:[100,1400,900,2000]};
+
+function shell(ctx,pal,st,room){
+  // camera turned toward one side wall: the opposite side wall is out of view, so extend floor/ceiling/back wall past it
+  const hideL=XC<XL+50,hideR=XC>XR-50,XLe=hideL?XL-8000:XL,XRe=hideR?XR+8000:XR;
+  if(REC){REC.room={XL,XR,XLe,XRe,hideL,hideR,pal,st};TAG="ceil";poly(ctx,[P(XLe,YC,ZB),P(XRe,YC,ZB),P(XRe,YC,ZF),P(XLe,YC,ZF)],pal.ceil);TAG="floor";poly(ctx,[P(XLe,0,ZB),P(XRe,0,ZB),P(XRe,0,ZF),P(XLe,0,ZF)],pal.floor);TAG="wall";
+    if(!hideL)poly(ctx,[P(XL,0,ZF),P(XL,0,ZB),P(XL,YC,ZB),P(XL,YC,ZF)],pal.wall);if(!hideR)poly(ctx,[P(XR,0,ZF),P(XR,0,ZB),P(XR,YC,ZB),P(XR,YC,ZF)],pal.wall);
+    poly(ctx,[P(XLe,0,ZB),P(XRe,0,ZB),P(XRe,YC,ZB),P(XLe,YC,ZB)],pal.wall);TAG="";}else{
+  poly(ctx,[P(XLe,YC,ZB),P(XRe,YC,ZB),P(XRe,YC,ZF),P(XLe,YC,ZF)],shade(pal.ceil,.96));
+  poly(ctx,[P(XLe,0,ZB),P(XRe,0,ZB),P(XRe,0,ZF),P(XLe,0,ZF)],pal.floor);
+  if(!hideL)poly(ctx,[P(XL,0,ZF),P(XL,0,ZB),P(XL,YC,ZB),P(XL,YC,ZF)],shade(pal.wall,.9));
+  if(!hideR)poly(ctx,[P(XR,0,ZF),P(XR,0,ZB),P(XR,YC,ZB),P(XR,YC,ZF)],shade(pal.wall,.85));
+  poly(ctx,[P(XLe,0,ZB),P(XRe,0,ZB),P(XRe,YC,ZB),P(XLe,YC,ZB)],pal.wall);}
+  // 바닥
+  if(REC){}else if(st==="before"){
+    for(let x=XLe;x<=XRe;x+=450)line(ctx,P(x,0,ZB),P(x,0,ZF),pal.fl,1);
+    for(let z=ZB;z>ZF;z-=450)line(ctx,P(XLe,0,z),P(XRe,0,z),pal.fl,1);
+    blob(ctx,P(0,0,2600),170,"rgba(220,200,160,.25)");
+  }else{
+    const w=st==="minimal"?260:st==="hanok"?150:190;let i=0;
+    for(let x=XLe;x<XRe;x+=w,i++){
+      line(ctx,P(x,0,ZB),P(x,0,ZF),pal.fl,1);
+      for(let z=ZB-((i*730)%1800);z>ZF;z-=1800)line(ctx,P(x,0,z),P(Math.min(x+w,XRe),0,z),pal.fl,1);
+    }
+  }
+  const fg=ctx.createLinearGradient(0,585,0,900);fg.addColorStop(0,"rgba(0,0,0,.10)");fg.addColorStop(1,"rgba(0,0,0,0)");
+  if(!REC)poly(ctx,[P(XLe,0,ZB),P(XRe,0,ZB),P(XRe,0,ZF),P(XLe,0,ZF)],fg);
+  // 노후 벽지
+  if(st==="before"&&!REC){
+    for(let x=Math.max(XLe,XL-3000);x<=Math.min(XRe,XR+3000);x+=120)line(ctx,P(x,0,ZB),P(x,YC,ZB),"rgba(110,85,40,.07)",1);
+    for(let z=ZB;z>ZF;z-=240){if(!hideL)line(ctx,P(XL,0,z),P(XL,YC,z),"rgba(110,85,40,.07)",1);if(!hideR)line(ctx,P(XR,0,z),P(XR,YC,z),"rgba(110,85,40,.07)",1);}
+    const R=rng(room==="A"?7:13);
+    for(let i=0;i<7;i++){const x=XL+R()*3600,y=300+R()*1900;blob(ctx,P(x,y,ZB),20+R()*45,"rgba(120,90,40,.22)");}
+    for(let i=0;i<4;i++){const z=1800+R()*2300,y=200+R()*2000;blob(ctx,P(XL,y,z),25+R()*50,"rgba(110,85,40,.2)");}
+    blob(ctx,P(-1500,2400,3800),60,"rgba(120,95,50,.25)");
+    poly(ctx,[P(-1800,2400,ZB),P(-1500,2400,ZB),P(-1800,2050,ZB)],"rgba(245,238,215,.65)","rgba(110,85,40,.25)");
+  }
+  // 한옥모던 구조 표현
+  if(st==="hanok"){
+    for(let x=XL+450;x<XR;x+=450)poly(ctx,[P(x-25,YC,ZB),P(x+25,YC,ZB),P(x+25,YC,ZF),P(x-25,YC,ZF)],pal.wood);
+    if(!hideL)box(ctx,[XL,XL+120,0,YC,ZB-120,ZB],pal.wood);
+    if(!hideR)box(ctx,[XR-120,XR,0,YC,ZB-120,ZB],pal.wood);
+    box(ctx,[XL+120,XR-120,2150,2280,ZB-60,ZB],pal.wood);
+  }
+  // 걸레받이
+  const bh=st==="before"?110:st==="minimal"?14:st==="hanok"?90:70;
+  const bc=st==="minimal"?"#cfcdc6":pal.base;
+  poly(ctx,[P(XLe,0,ZB-1),P(XRe,0,ZB-1),P(XRe,bh,ZB-1),P(XLe,bh,ZB-1)],bc,"rgba(0,0,0,.12)");
+  if(!hideL)poly(ctx,[P(XL,0,ZF),P(XL,0,ZB),P(XL,bh,ZB),P(XL,bh,ZF)],shade(bc,.9));
+  if(!hideR)poly(ctx,[P(XR,0,ZF),P(XR,0,ZB),P(XR,bh,ZB),P(XR,bh,ZF)],shade(bc,.86));
+  ctx.strokeStyle="rgba(0,0,0,.12)";ctx.lineWidth=1;
+  [...(hideL?[]:[[P(XL,0,ZB),P(XL,YC,ZB)]]),...(hideR?[]:[[P(XR,0,ZB),P(XR,YC,ZB)]]),[P(XLe,YC,ZB),P(XRe,YC,ZB)]].forEach(s=>line(ctx,s[0],s[1],"rgba(0,0,0,.12)",1));
+}
+
+function paneLines(ctx,pal,st,pt,u0,u1,v0,v1,n){
+  // pt(u,v): point on the window plane; u along width, v = height (mm)
+  n=CL(Math.round(n||2),1,6);
+  for(let i=1;i<n;i++){const u=u0+(u1-u0)*i/n;poly(ctx,[pt(u-22,v0),pt(u+22,v0),pt(u+22,v1),pt(u-22,v1)],pal.frame,"rgba(0,0,0,.15)");}
+  if(st==="hanok"){
+    const top=v1-(v1-v0)*.38;
+    for(let i=0;i<n;i++){const a=u0+(u1-u0)*i/n+30,b=u0+(u1-u0)*(i+1)/n-30;
+      poly(ctx,[pt(a,top),pt(b,top),pt(b,v1-20),pt(a,v1-20)],"rgba(246,239,223,.92)");
+      for(let u=a;u<=b;u+=40)line(ctx,pt(u,top),pt(u,v1-20),"rgba(107,74,46,.6)",1);
+      for(let v=top;v<=v1-20;v+=40)line(ctx,pt(a,v),pt(b,v),"rgba(107,74,46,.6)",1);}
+    line(ctx,pt(u0,top),pt(u1,top),pal.frame,4);
+  }else if(st==="before"){
+    const top=v1-(v1-v0)*.38;line(ctx,pt(u0,top),pt(u1,top),pal.frame,4);
+  }
+}
+function windowBack(ctx,pal,st,rect,panes){
+  const[x0,x1,y0,y1]=rect,z=ZB-2,f=70;
+  poly(ctx,[P(x0,y0,z),P(x1,y0,z),P(x1,y1,z),P(x0,y1,z)],pal.frame,"rgba(0,0,0,.2)");
+  const a=P(x0+f,y1-f,z),b=P(x1-f,y0+f,z);
+  const g=ctx.createLinearGradient(0,a[1],0,b[1]);g.addColorStop(0,pal.glass[0]);g.addColorStop(1,pal.glass[1]);
+  TAG="glass";poly(ctx,[P(x0+f,y0+f,z),P(x1-f,y0+f,z),P(x1-f,y1-f,z),P(x0+f,y1-f,z)],g);TAG="";
+  const mx=(x0+x1)/2;
+  if(st==="hanok"){
+    if(REC){poly(ctx,[P(x0+f,y0+f,z-6),P(x1-f,y0+f,z-6),P(x1-f,y1-f,z-6),P(x0+f,y1-f,z-6)],"rgba(246,239,223,.5)");for(let x=x0+f+48;x<x1-f;x+=96)box(ctx,[x-8,x+8,y0+f,y1-f,z-14,z-6],pal.frame);for(let y=y0+f+60;y<y1-f;y+=240)box(ctx,[x0+f,x1-f,y-8,y+8,z-14,z-6],pal.frame);}
+    for(let x=x0+f;x<x1-f;x+=48)line(ctx,P(x,y0+f,z),P(x,y1-f,z),"rgba(107,74,46,.55)",1);
+    [[y1-f-40,3],[(y0+y1)/2,3],[y0+f+40,3]].forEach(([yy,n])=>{for(let k=0;k<n;k++){const yv=yy-k*36+36;line(ctx,P(x0+f,yv,z),P(x1-f,yv,z),"rgba(107,74,46,.7)",1.2);}});
+  }
+  if(panes)paneLines(ctx,pal,st,(u,v)=>P(u,v,z-1),x0+f,x1-f,y0+f,y1-f,panes);
+  else box(ctx,[mx-25,mx+25,y0+f,y1-f,z-30,z],pal.frame,"rgba(0,0,0,.15)");
+  box(ctx,[x0-40,x1+40,y0-40,y0,z-90,z],shade(pal.frame,.95));
+  if(st==="before"){
+    const c="#b39882";
+    [[x0-260,x0+170],[x1-170,x1+260]].forEach(([a0,a1])=>{
+      poly(ctx,[P(a0,650,z-60),P(a1,650,z-60),P(a1,y1+180,z-60),P(a0,y1+180,z-60)],c,"rgba(0,0,0,.15)");
+      for(let x=a0+60;x<a1;x+=70)line(ctx,P(x,650,z-60),P(x,y1+180,z-60),"rgba(70,50,35,.25)",1.5);
+    });
+    line(ctx,P(x0-300,y1+190,z-60),P(x1+300,y1+190,z-60),"#7c7f80",3);
+  }else if(st==="nordic"){
+    [[x0-240,x0+260],[x1-260,x1+240]].forEach(([a0,a1])=>{
+      poly(ctx,[P(a0,40,z-60),P(a1,40,z-60),P(a1,YC-60,z-60),P(a0,YC-60,z-60)],"rgba(255,255,253,.62)");
+      for(let x=a0+50;x<a1;x+=60)line(ctx,P(x,40,z-60),P(x,YC-60,z-60),"rgba(200,195,185,.35)",1);
+    });
+  }else if(st==="minimal"){
+    const h=(y1-y0-2*f)*.32;
+    poly(ctx,[P(x0+f,y1-f-h,z-10),P(x1-f,y1-f-h,z-10),P(x1-f,y1-f,z-10),P(x0+f,y1-f,z-10)],"#e6e4de","rgba(0,0,0,.08)");
+  }
+}
+
+function doorColor(pal,st){return st==="before"?"#7a5638":st==="hanok"?pal.woodL:"#f7f6f2";}
+function doorSide(ctx,pal,st,xw,z0,z1,h){
+  const c=doorColor(pal,st);
+  poly(ctx,[P(xw,0,z0),P(xw,0,z1),P(xw,h,z1),P(xw,h,z0)],shade(c,.88),"rgba(0,0,0,.18)");
+  if(st!=="minimal")poly(ctx,[P(xw,0,z0-50),P(xw,0,z0),P(xw,h+50,z0),P(xw,h+50,z0-50)],shade(st==="before"?"#5b3d27":c,.8));
+  const k=P(xw,h*.48,z1-100);ctx.beginPath();ctx.arc(k[0],k[1],5,0,7);ctx.fillStyle=st==="before"?"#c9b37a":"#6b6b68";ctx.fill();
+}
+function doorBack(ctx,pal,st,x0,x1,h){
+  const c=doorColor(pal,st),z=ZB-2;
+  poly(ctx,[P(x0-50,0,z),P(x1+50,0,z),P(x1+50,h+50,z),P(x0-50,h+50,z)],shade(st==="before"?"#5b3d27":c,.8));
+  poly(ctx,[P(x0,0,z),P(x1,0,z),P(x1,h,z),P(x0,h,z)],c,"rgba(0,0,0,.18)");
+  const k=P(x1-90,h*.48,z);ctx.beginPath();ctx.arc(k[0],k[1],4,0,7);ctx.fillStyle="#6b6b68";ctx.fill();
+}
+
+function lights(ctx,pal,st){
+  if(REC){recLights(ctx,pal,st);return;}
+  if(st==="before"){
+    box(ctx,[-520,520,2330,2400,3000,3160],"#eef2ea","rgba(0,0,0,.2)");
+    blob(ctx,P(0,2300,3080),170,"rgba(235,250,225,.35)");
+  }else if(st==="nordic"){
+    line(ctx,P(0,2400,3200),P(0,1820,3200),"#555",1.2);
+    const p=P(0,1820,3200),s=K/3200;
+    ctx.beginPath();ctx.ellipse(p[0],p[1],230*s,170*s,0,Math.PI,0);ctx.fillStyle="#e8e4dc";ctx.fill();ctx.strokeStyle="rgba(0,0,0,.2)";ctx.stroke();
+    ctx.beginPath();ctx.ellipse(p[0],p[1],230*s,28*s,0,0,Math.PI*2);ctx.fillStyle="#fff6df";ctx.fill();
+    blob(ctx,[p[0],p[1]+30],230,"rgba(255,226,170,.30)");
+  }else if(st==="minimal"){
+    [[-1000,2700],[1000,2700],[-1000,3700],[1000,3700],[0,3200]].forEach(([x,z])=>{disc(ctx,x,2399,z,70,"#fffef6","rgba(0,0,0,.15)");blob(ctx,P(x,2300,z),110,"rgba(255,252,236,.35)");});
+  }else{
+    line(ctx,P(0,2400,3200),P(0,2050,3200),"#3c2a1a",1.5);
+    box(ctx,[-170,170,1680,2050,3100,3300],"#f8ecd4","rgba(90,60,30,.35)");
+    box(ctx,[-180,180,2030,2060,3090,3310],pal.wood);box(ctx,[-180,180,1660,1690,3090,3310],pal.wood);
+    blob(ctx,P(0,1860,3200),260,"rgba(255,200,130,.32)");
+  }
+}
+
+function furnA(ctx,pal,st,sc){
+  const single=sc==="single";
+  if(st==="nordic"){poly(ctx,[P(-1300,1,2350),P(1300,1,2350),P(1300,1,3700),P(-1300,1,3700)],"#e6e1d7","rgba(0,0,0,.08)");poly(ctx,[P(-1180,2,2470),P(1180,2,2470),P(1180,2,3580),P(-1180,2,3580)],null,"rgba(150,140,120,.35)",1.5);}
+  if(single&&st!=="before"){
+    const sc2=st==="minimal"?pal.white:pal.woodL;
+    box(ctx,[-950,950,1560,1600,4000,4200],sc2);
+    [[-850,-700,"#a8a39a"],[-680,-560,"#cfc7b8"],[-540,-400,pal.accent],[300,520,"#d9d3c7"],[600,700,"#9fa79a"]].forEach(([a,b,c],i)=>box(ctx,[a,b,1600,1600+(i%2?220:260),4050,4180],c));
+  }
+  // 소파
+  if(st==="before"){
+    const c=pal.fabric;
+    box(ctx,[-1100,1100,430,860,3950,4150],shade(c,.95));box(ctx,[-1100,1100,0,430,3450,4150],c);
+    box(ctx,[-1100,-930,0,620,3450,4150],shade(c,.9));box(ctx,[930,1100,0,620,3450,4150],shade(c,.9));
+    blob(ctx,P(-450,380,3450),28,"rgba(210,180,150,.45)");blob(ctx,P(380,300,3450),22,"rgba(210,180,150,.4)");
+  }else if(st==="nordic"){
+    [[-1030,-990,3520],[990,1030,3520],[-1030,-990,4100],[990,1030,4100]].forEach(([a,b,z])=>box(ctx,[a,b,0,150,z,z+40],pal.wood));
+    box(ctx,[-1050,1050,440,820,3950,4150],shade(pal.fabric,.96));box(ctx,[-1050,1050,150,440,3500,4150],pal.fabric);
+    box(ctx,[-1050,-920,150,600,3500,4150],shade(pal.fabric,.93));box(ctx,[920,1050,150,600,3500,4150],shade(pal.fabric,.93));
+    box(ctx,[-850,-380,440,760,3860,3950],"#a7b59c");box(ctx,[380,850,440,760,3860,3950],"#d9cbb2");
+  }else if(st==="minimal"){
+    box(ctx,[-1000,1000,380,700,3980,4150],shade(pal.fabric,.96));box(ctx,[-1000,1000,0,380,3500,4150],pal.fabric);
+  }else{
+    box(ctx,[-1150,1150,0,330,3400,4150],pal.wood);
+    box(ctx,[-1100,1100,330,420,3450,4120],pal.fabric);
+    box(ctx,[-1050,1050,420,700,3950,4100],pal.accent);
+  }
+  // 왼쪽 수납
+  if(st==="before"){
+    box(ctx,[-1800,-1350,0,550,2900,3900],pal.wood);
+    box(ctx,[-1760,-1420,550,1020,3150,3650],"#3b3b39");
+    poly(ctx,[P(-1420,600,3200),P(-1420,600,3600),P(-1420,970,3600),P(-1420,970,3200)],"#252b2d");
+  }else if(st==="nordic"){
+    box(ctx,[-1800,-1400,0,650,2800,3900],pal.woodL);
+    line(ctx,P(-1400,330,2800),P(-1400,330,3900),"rgba(0,0,0,.18)",1);line(ctx,P(-1400,0,3350),P(-1400,650,3350),"rgba(0,0,0,.18)",1);
+    box(ctx,[-1700,-1520,650,850,3250,3450],"#dcd6cc");leaves(ctx,-1610,1020,3350,260,"#7d9a73");
+  }else if(st==="minimal"){
+    box(ctx,[-1800,-1450,0,2400,2600,4200],pal.white,"rgba(0,0,0,.1)");
+    [3130,3660].forEach(z=>line(ctx,P(-1450,20,z),P(-1450,2380,z),"rgba(0,0,0,.14)",1));
+    line(ctx,P(-1450,2100,2600),P(-1450,2100,4200),"rgba(0,0,0,.12)",1);
+  }else{
+    box(ctx,[-1800,-1350,0,700,3000,3800],pal.wood);
+    line(ctx,P(-1350,450,3000),P(-1350,450,3800),"rgba(0,0,0,.3)",1);
+    [[3150,3250],[3550,3650]].forEach(([a,b])=>poly(ctx,[P(-1350,470,a),P(-1350,470,b),P(-1350,600,b),P(-1350,600,a)],"#b8955a"));
+    const p=P(-1575,960,3400),s=K/3400;ctx.beginPath();ctx.ellipse(p[0],p[1],190*s,240*s,0,0,Math.PI*2);ctx.fillStyle="#f1ede4";ctx.fill();ctx.strokeStyle="rgba(0,0,0,.12)";ctx.stroke();
+  }
+  // 테이블
+  if(st==="before"){
+    [[-520,-490,2720],[490,520,2720],[-520,-490,3200],[490,520,3200]].forEach(([a,b,z])=>box(ctx,[a,b,0,400,z,z+30],"#8b8f8f"));
+    box(ctx,[-560,560,400,420,2700,3250],"rgba(175,205,210,.55)","rgba(80,100,100,.4)");
+  }else if(st==="nordic"){
+    [[-30,30,2780],[-300,-260,3100],[260,300,3100]].forEach(([a,b,z])=>box(ctx,[a,b,0,400,z,z+40],pal.wood));
+    disc(ctx,0,400,2980,450,shade(pal.woodL,.85));disc(ctx,0,420,2980,450,pal.woodL,"rgba(0,0,0,.12)");
+  }else if(st==="minimal"){
+    box(ctx,[-450,450,0,300,2750,3200],pal.white);
+  }else{
+    [[-230,-200,2800],[200,230,2800],[-230,-200,3150],[200,230,3150]].forEach(([a,b,z])=>box(ctx,[a,b,0,300,z,z+30],shade(pal.wood,.8)));
+    disc(ctx,0,300,2980,330,shade(pal.wood,.8));disc(ctx,0,330,2980,330,pal.wood,"rgba(0,0,0,.15)");
+  }
+  if(single&&st!=="before")box(ctx,[950,1400,0,420,2400,2850],shade(pal.fabric,.92));
+  if(st==="nordic"){box(ctx,[1250,1550,0,360,3700,4000],"#e3ddd3");leaves(ctx,1400,800,3850,420,"#6f8f68");}
+}
+
+function furnB(ctx,pal,st,sc){
+  const single=sc==="single"&&st!=="before";
+  // 선반
+  if(single){[1500,1880].forEach(y=>{box(ctx,[-1800,-700,y,y+40,3980,4200],st==="minimal"?pal.white:pal.woodL);});
+    [[-1700,-1560,"#cfc7b8"],[-1530,-1420,pal.accent],[-1000,-820,"#a8a39a"]].forEach(([a,b,c])=>box(ctx,[a,b,1540,1760,4040,4180],c));}
+  // 책상과 의자
+  if(st==="before"){
+    [[320,350,3680],[1360,1390,3680],[320,350,4100],[1360,1390,4100]].forEach(([a,b,z])=>box(ctx,[a,b,0,700,z,z+30],"#6b6f70"));
+    box(ctx,[300,1400,700,740,3650,4150],pal.woodL);
+    box(ctx,[620,1060,0,440,3150,3550],"#545654");box(ctx,[620,1060,440,900,3150,3200],"#4a4c4a");
+  }else{
+    if(single){box(ctx,[300,1400,720,760,3750,4200],st==="minimal"?pal.white:pal.woodL);box(ctx,[380,420,560,720,4100,4200],"#777");box(ctx,[1280,1320,560,720,4100,4200],"#777");}
+    else{[[320,350,3680],[1360,1390,3680],[320,350,4100],[1360,1390,4100]].forEach(([a,b,z])=>box(ctx,[a,b,0,720,z,z+30],pal.wood));box(ctx,[300,1400,720,760,3650,4150],st==="minimal"?pal.white:pal.woodL);}
+    const ch=st==="hanok"?pal.wood:st==="minimal"?"#d9d6cf":pal.fabric;
+    box(ctx,[640,1040,0,440,3200,3560],ch);box(ctx,[640,1040,440,860,3200,3240],shade(ch,.95));
+  }
+  // 침대
+  if(st==="before"){
+    box(ctx,[-1800,-700,0,1000,4150,4200],"#8a8f90");
+    box(ctx,[-1800,-700,250,300,2400,4150],"#8a8f90");
+    [[2420,2460],[4100,4140]].forEach(([a,b])=>box(ctx,[-760,-720,0,250,a,b],"#7b7f80"));
+    box(ctx,[-1780,-720,300,520,2420,4140],"#d4ccbc");
+    box(ctx,[-1790,-710,300,560,2400,3450],"#9c7f6a");
+  }else{
+    const fh=single?440:st==="hanok"?240:st==="minimal"?300:340;
+    const fc=st==="minimal"?pal.white:st==="hanok"?pal.wood:pal.woodL;
+    if(st==="nordic")box(ctx,[-1800,-650,0,1050,4120,4200],pal.wood);
+    box(ctx,[-1800,-650,0,fh,2400,4120],fc);
+    if(single){[[2500,3200],[3300,4000]].forEach(([a,b])=>{poly(ctx,[P(-650,60,a),P(-650,60,b),P(-650,fh-60,b),P(-650,fh-60,a)],null,"rgba(0,0,0,.25)",1);const h=P(-650,fh/2,(a+b)/2);ctx.fillStyle="rgba(0,0,0,.35)";ctx.fillRect(h[0]-1,h[1]-6,3,12);});}
+    if(st==="hanok"){box(ctx,[-1760,-690,fh,fh+130,2450,4100],pal.fabric);box(ctx,[-1760,-690,fh,fh+180,2450,2950],pal.accent);box(ctx,[-1600,-850,fh+130,fh+230,3800,4050],"#f3efe6");}
+    else{box(ctx,[-1780,-670,fh,fh+220,2420,4100],"#f4f2ee");box(ctx,[-1790,-660,fh,fh+260,2400,3350],st==="minimal"?"#e7e4dd":pal.fabric);box(ctx,[-1650,-800,fh+220,fh+340,3800,4050],"#fbfaf7");}
+  }
+  // 옷장
+  const wc=st==="before"?"#6e4d33":st==="minimal"?pal.white:st==="hanok"?pal.woodL:pal.white;
+  box(ctx,[1250,1800,0,single?2400:2000,2000,2800],wc,"rgba(0,0,0,.15)");
+  line(ctx,P(1250,40,2400),P(1250,(single?2400:2000)-40,2400),"rgba(0,0,0,.25)",1);
+  if(single){const g=ctx.createLinearGradient(P(1250,0,2050)[0],0,P(1250,0,2350)[0],0);g.addColorStop(0,"rgba(220,232,236,.9)");g.addColorStop(1,"rgba(190,205,210,.9)");poly(ctx,[P(1250,150,2060),P(1250,150,2340),P(1250,2200,2340),P(1250,2200,2060)],g,"rgba(0,0,0,.15)");}
+  if(st==="nordic"&&!single){box(ctx,[1350,1600,0,320,3500,3750],"#e3ddd3");leaves(ctx,1475,700,3625,360,"#6f8f68");}
+}
+
+function overlay(ctx,st,rect){
+  if(st==="before"){
+    ctx.fillStyle="rgba(120,140,95,.10)";ctx.fillRect(0,0,1200,900);
+    const v=ctx.createRadialGradient(600,450,250,600,450,780);v.addColorStop(0,"rgba(0,0,0,0)");v.addColorStop(1,"rgba(0,0,0,.32)");ctx.fillStyle=v;ctx.fillRect(0,0,1200,900);
+  }else{
+    const[x0,x1,y0,y1]=rect||[-500,500,900,2000];const c=P((x0+x1)/2,(y0+y1)/2,ZB);
+    const g=ctx.createRadialGradient(c[0],c[1],20,c[0],c[1],700);g.addColorStop(0,"rgba(255,250,235,.22)");g.addColorStop(1,"rgba(255,250,235,0)");ctx.fillStyle=g;ctx.fillRect(0,0,1200,900);
+    const v=ctx.createRadialGradient(600,450,350,600,450,820);v.addColorStop(0,"rgba(0,0,0,0)");v.addColorStop(1,"rgba(0,0,0,.14)");ctx.fillStyle=v;ctx.fillRect(0,0,1200,900);
+  }
+}
+
+function drawScene(ctx,room,st,sc){
+  const pal=PAL[st];
+  setGeo(GEO0);
+  ctx.save();ctx.translate(0,-50);ctx.clearRect(0,-50,1200,1000);
+  shell(ctx,pal,st,room);windowBack(ctx,pal,st,WIN[room]);
+  if(room==="A")doorSide(ctx,pal,st,XR,2350,3250,2100);
+  if(st==="before"){if(room==="A")furnA(ctx,pal,st,sc);else furnB(ctx,pal,st,sc);}
+  else{const w=WIN[room];drawPlanned(ctx,planLayout({XL,XR,hideL:false,hideR:false,backOps:[{kind:"window",a:w[0],b:w[1],sill:w[2]}],sideOps:room==="A"?[{wall:"right",kind:"door",z0:2350,z1:3250}]:[],scenario:sc,style:st}),pal,st,sc==="single");}
+  lights(ctx,pal,st);overlay(ctx,st,WIN[room]);
+  ctx.restore();
+}
+
+
+/* ---------- AI 구조 분석 결과로 그리는 리모델링 렌더 ---------- */
+const NUM=(v,d)=>{v=Number(v);return Number.isFinite(v)?v:d;};
+const CL=(v,a,b)=>Math.max(a,Math.min(b,v));
+function geoFromAI(a){
+  const bw=a.back_wall||{},vp=a.vanishing_point||{};
+  let bx0=CL(NUM(bw.x0,.3),-1,2)*1200,bx1=CL(NUM(bw.x1,.7),-1,2)*1200,by0=CL(NUM(bw.y0,.25),0,1)*800,by1=CL(NUM(bw.y1,.7),0,1)*800;
+  if(bx1-bx0<150||by1-by0<120){bx0=360;bx1=840;by0=200;by1=560;}
+  let vx=NUM(vp.x,(bx0+bx1)/2400)*1200,vy=NUM(vp.y,(by0+by1)/1600)*800;
+  if(vy<by0+15||vy>by1-15)vy=by0+(by1-by0)*.5;
+  vx=CL(vx,bx0-900,bx1+900);
+  const s=(by1-by0)/2400;let W=CL((bx1-bx0)/s,1800,7200);
+  const XLn=-W/2;
+  return {K:s*ZB,CX:vx,CY:vy,EYE:(by1-vy)/s,XC:XLn-(bx0-vx)/s,XL:XLn,XR:W/2};
+}
+const imgToWall=(x,y)=>[XC+(x*1200-CX)*ZB/K, EYE-(y*800-CY)*ZB/K];
+function floorZ(y){const d=y*800-CY;return d>4?CL(EYE*K/d,ZF+300,ZB):ZB-600;}
+function sideZ(xw,x){const d=x*1200-CX;if(Math.abs(d)<3)return ZB;const z=(xw-XC)*K/d;return z>0?CL(z,ZF+200,ZB):ZB;}
+
+const SIZE={sofa:[2000,850],bed:[1100,2000],desk:[1200,600],table:[900,500],chair:[480,480],wardrobe:[900,600],cabinet:[1200,450],tv_stand:[1400,420],shelf:[800,320],other:[700,500]};
+function placeItems(list){
+  const out=[];
+  (Array.isArray(list)?list:[]).slice(0,8).forEach(f=>{
+    const type=SIZE[f&&f.type]?f.type:"other";
+    const wall=["back","left","right","free"].includes(f.wall)?f.wall:"free";
+    let[w,d]=SIZE[type];const Wroom=XR-XL;
+    if(type==="bed"&&(wall==="left"||wall==="right"))[w,d]=[2000,1100];
+    const wm=NUM(f.w_mm,0);if(wm>=300&&wm<=4000){if(type==="bed"&&(wall==="left"||wall==="right"))d=CL(wm,900,1800);else w=wm;}
+    if(w>Wroom*.7){w=Wroom*.7;}
+    let zf=floorZ(CL(NUM(f.y_floor,.85),0,1));
+    let x0,x1,z0,z1;
+    if(wall==="left"||wall==="right"){
+      const zc=CL(zf,ZF+w/2+200,ZB-w/2);z0=zc-w/2;z1=zc+w/2;
+      if(wall==="left"){x0=XL;x1=XL+d;}else{x0=XR-d;x1=XR;}
+    }else{
+      const xc=XC+(CL(NUM(f.x,.5),0,1)*1200-CX)*zf/K;
+      x0=CL(xc-w/2,XL,XR-w);x1=x0+w;
+      if(wall==="back"){z1=ZB;z0=ZB-d;}else{z0=CL(zf,ZF+300,ZB-d);z1=z0+d;}
+    }
+    out.push({type,wall,x0,x1,z0,z1});
+  });
+  // items on the same back wall must not overlap: keep their order, push apart, stay inside the room
+  const bk=out.filter(o=>o.wall==="back").sort((a,b)=>(a.x0+a.x1)-(b.x0+b.x1));
+  for(let i=1;i<bk.length;i++){const p=bk[i-1],q=bk[i];if(q.x0<p.x1){const sh=p.x1-q.x0;q.x0+=sh;q.x1+=sh;}}
+  for(let i=bk.length-1;i>=0;i--){const q=bk[i],lim=i===bk.length-1?XR:bk[i+1].x0;if(q.x1>lim){const sh=q.x1-lim;q.x0-=sh;q.x1-=sh;}}
+  bk.forEach(q=>{if(q.x0<XL){q.x1+=XL-q.x0;q.x0=XL;}});
+  return out.sort((a,b)=>(b.z0+b.z1)-(a.z0+a.z1));
+}
+function drawItem(ctx,it,pal,st,single){
+  const{type,wall,x0,x1,z0,z1}=it;const xm=(x0+x1)/2,zm=(z0+z1)/2;
+  const along=wall==="left"||wall==="right"?"z":"x";
+  const legC=st==="before"?"#7b7f80":st==="hanok"?shade(pal.wood,.8):pal.wood;
+  const legs=(h,c)=>{const t=40;[[x0+20,z0+20],[x1-20-t,z0+20],[x0+20,z1-20-t],[x1-20-t,z1-20-t]].forEach(([a,z])=>box(ctx,[a,a+t,0,h,z,z+t],c||legC));};
+  // backrest strip for sofa/bed head toward the wall
+  const backStrip=(y0,y1,th)=>wall==="left"?[x0,x0+th,y0,y1,z0,z1]:wall==="right"?[x1-th,x1,y0,y1,z0,z1]:[x0,x1,y0,y1,z1-th,z1];
+  if(type==="sofa"){
+    if(st==="before"){box(ctx,backStrip(430,860,200),shade(pal.fabric,.95));box(ctx,[x0,x1,0,430,z0,z1],pal.fabric);}
+    else if(st==="nordic"){legs(150);box(ctx,backStrip(440,820,200),shade(pal.fabric,.96));box(ctx,[x0,x1,150,440,z0,z1],pal.fabric);}
+    else if(st==="minimal"){box(ctx,backStrip(380,700,170),shade(pal.fabric,.96));box(ctx,[x0,x1,0,380,z0,z1],pal.fabric);}
+    else{box(ctx,[x0-40,x1+40,0,330,z0-40,z1],pal.wood);box(ctx,[x0,x1,330,420,z0,z1-30],pal.fabric);box(ctx,backStrip(420,700,150),pal.accent);}
+  }else if(type==="bed"){
+    const fh=st==="before"?300:single?440:st==="hanok"?240:st==="minimal"?300:340;
+    const fc=st==="before"?"#8a8f90":st==="minimal"?pal.white:st==="hanok"?pal.wood:pal.woodL;
+    if(st==="before")legs(fh,"#7b7f80");
+    box(ctx,[x0,x1,st==="before"?fh-50:0,fh,z0,z1],fc);
+    const mat=st==="before"?"#d4ccbc":"#f4f2ee",duv=st==="before"?"#9c7f6a":st==="minimal"?"#e7e4dd":st==="hanok"?pal.accent:pal.fabric;
+    box(ctx,[x0+20,x1-20,fh,fh+200,z0+20,z1-20],mat);
+    if(along==="x")box(ctx,[x0+10,xm,fh,fh+240,z0+10,z1-10],duv);else box(ctx,[x0+10,x1-10,fh,fh+240,z0+10,zm],duv);
+  }else if(type==="desk"){
+    const top=st==="minimal"?pal.white:pal.woodL;
+    if(single&&st!=="before")box(ctx,[x0,x1,720,760,z0,z1],top);else{legs(720,st==="before"?"#6b6f70":legC);box(ctx,[x0,x1,720,760,z0,z1],st==="before"?pal.woodL:top);}
+  }else if(type==="table"){
+    if(st==="before"){legs(400,"#8b8f8f");box(ctx,[x0,x1,400,420,z0,z1],"rgba(175,205,210,.55)","rgba(80,100,100,.4)");}
+    else if(st==="nordic"){box(ctx,[xm-20,xm+20,0,400,zm-20,zm+20],pal.wood);disc(ctx,xm,400,zm,Math.min(x1-x0,z1-z0)/2+80,shade(pal.woodL,.85));disc(ctx,xm,420,zm,Math.min(x1-x0,z1-z0)/2+80,pal.woodL,"rgba(0,0,0,.12)");}
+    else if(st==="minimal")box(ctx,[x0,x1,0,300,z0,z1],pal.white);
+    else{box(ctx,[xm-20,xm+20,0,300,zm-20,zm+20],shade(pal.wood,.8));disc(ctx,xm,300,zm,330,shade(pal.wood,.8));disc(ctx,xm,330,zm,330,pal.wood,"rgba(0,0,0,.15)");}
+  }else if(type==="chair"){
+    const c=st==="before"?"#545654":st==="hanok"?pal.wood:st==="minimal"?"#d9d6cf":pal.fabric;
+    box(ctx,[x0,x1,0,440,z0,z1],c);box(ctx,[x0,x1,440,860,z0,z0+40],shade(c,.95));
+  }else if(type==="wardrobe"){
+    const h=single&&st!=="before"?2400:2000,c=st==="before"?"#6e4d33":st==="hanok"?pal.woodL:pal.white;
+    box(ctx,[x0,x1,0,h,z0,z1],c,"rgba(0,0,0,.15)");
+    if(along==="x")line(ctx,P(xm,40,z0),P(xm,h-40,z0),"rgba(0,0,0,.25)",1);else{const xf=wall==="left"?x1:x0;line(ctx,P(xf,40,zm),P(xf,h-40,zm),"rgba(0,0,0,.25)",1);}
+  }else if(type==="cabinet"||type==="tv_stand"){
+    const c=st==="before"?pal.wood:st==="minimal"?pal.white:st==="hanok"?pal.wood:pal.woodL;
+    box(ctx,[x0,x1,0,st==="minimal"?450:600,z0,z1],c);
+    if(type==="tv_stand"){
+      if(st==="before")box(ctx,[xm-300,xm+300,600,1080,zm-200,zm+150],"#3b3b39");
+      else box(ctx,[xm-560,xm+560,800,1450,z1-60,z1-30],"#2a2f31");
+    }else if(st==="hanok")poly(ctx,[P(x0+100,380,z0),P(x0+220,380,z0),P(x0+220,480,z0),P(x0+100,480,z0)],"#b8955a");
+  }else if(type==="shelf"){
+    const c=st==="before"?pal.woodL:st==="minimal"?pal.white:pal.woodL;
+    [0,450,900,1350,1780].forEach(y=>box(ctx,[x0,x1,y,y+30,z0,z1],c));
+    box(ctx,[x0,x0+30,0,1810,z0,z1],c);box(ctx,[x1-30,x1,0,1810,z0,z1],c);
+  }else{
+    box(ctx,[x0,x1,0,700,z0,z1],st==="before"?pal.woodL:pal.fabric);
+  }
+}
+function drawPhotoScene(ctx,ai,st,sc){
+  const pal=PAL[st],single=sc==="single";
+  setGeo(geoFromAI(ai));
+  ctx.save();ctx.clearRect(0,0,1200,800);
+  shell(ctx,pal,st,"P");
+  let firstWin=null;const backOps=[],sideOps=[];
+  (ai.back_openings||[]).slice(0,4).forEach(o=>{
+    const[X0,Y1]=imgToWall(CL(NUM(o.x0,.4),0,1),CL(NUM(o.y0,.4),0,1)),[X1,Y0]=imgToWall(CL(NUM(o.x1,.6),0,1),CL(NUM(o.y1,.6),0,1));
+    const a=CL(Math.min(X0,X1),XL+50,XR-300),b=CL(Math.max(X0,X1),a+300,XR-50);
+    backOps.push({kind:o.kind==="door"?"door":"window",a,b,sill:o.kind==="door"?0:CL(Y0,200,1600)});
+    if(o.kind==="door")doorBack(ctx,pal,st,a,b,CL(Y1,1800,2300));
+    else{const r=[a,b,CL(Y0,200,1600),CL(Y1,Math.max(Y0,200)+400,2350)];windowBack(ctx,pal,st,r,NUM(o.panes,2));firstWin=firstWin||r;}
+  });
+  (ai.side_openings||[]).slice(0,3).forEach(o=>{
+    const xw=o.wall==="left"?XL:XR;
+    const za=sideZ(xw,CL(NUM(o.x_near,.1),0,1)),zb=sideZ(xw,CL(NUM(o.x_far,.2),0,1));
+    let z0=Math.min(za,zb),z1=Math.max(za,zb);if(z1-z0<500)z1=Math.min(ZB-50,z0+800);
+    const h=CL(EYE-(CL(NUM(o.y_top_near,.2),0,1)*800-CY)*z0/K,1800,2300);
+    sideOps.push({wall:o.wall==="left"?"left":"right",kind:o.kind==="window"?"window":"door",z0,z1});
+    if(o.kind==="window"){
+      const sill=CL(NUM(o.sill_mm,900),300,1300),c=pal.frame,pt=(u,v)=>P(xw,v,u);
+      poly(ctx,[pt(z0,sill),pt(z1,sill),pt(z1,h),pt(z0,h)],shade(c,.9),"rgba(0,0,0,.2)");
+      const g=ctx.createLinearGradient(0,P(xw,h,z0)[1],0,P(xw,sill,z0)[1]);g.addColorStop(0,pal.glass[0]);g.addColorStop(1,pal.glass[1]);
+      TAG="glass";poly(ctx,[pt(z0+70,sill+70),pt(z1-70,sill+70),pt(z1-70,h-70),pt(z0+70,h-70)],g);TAG="";
+      paneLines(ctx,pal,st,pt,z0+70,z1-70,sill+70,h-70,NUM(o.panes,2));
+      if(st==="nordic")poly(ctx,[pt(z0-150,40),pt(z0+250,40),pt(z0+250,YC-60),pt(z0-150,YC-60)],"rgba(255,255,253,.55)");
+      if(st==="minimal"){const bh=(h-sill)*.3;poly(ctx,[pt(z0+70,h-70-bh),pt(z1-70,h-70-bh),pt(z1-70,h-70),pt(z0+70,h-70)],"#e6e4de");}
+    }else doorSide(ctx,pal,st,xw,z0,z1,h);
+  });
+  if(st==="before")placeItems(ai.furniture).forEach(it=>drawItem(ctx,it,pal,st,single));
+  else drawPlanned(ctx,planLayout({XL,XR,hideL:XC<XL+50,hideR:XC>XR-50,backOps,sideOps,scenario:sc,style:st}),pal,st,single);
+  lights(ctx,pal,st);overlay(ctx,st,firstWin);
+  ctx.restore();setGeo(GEO0);maskFrame(ctx);
+}
+function maskFrame(ctx){
+  if(!FRAME)return;const[x,y,w,h]=FRAME;ctx.save();ctx.fillStyle="#1c2427";
+  ctx.fillRect(0,0,x,800);ctx.fillRect(x+w,0,1200-x-w,800);ctx.fillRect(0,0,1200,y);ctx.fillRect(0,y+h,1200,800-y-h);ctx.restore();
+}
+/* AI가 인식한 구조선 (Before 위에 겹쳐 보기) */
+const TYPE_KO={sofa:"소파",bed:"침대",desk:"책상",table:"테이블",chair:"의자",wardrobe:"옷장",cabinet:"수납장",tv_stand:"TV장",shelf:"선반",other:"가구"};
+function drawGuide(ctx,ai){
+  ctx.clearRect(0,0,1200,800);if(!ai)return;
+  setGeo(geoFromAI(ai));
+  const c="#2fd1bd";ctx.lineWidth=2.5;ctx.setLineDash([]);
+  const b=[P(XL,0,ZB),P(XR,0,ZB),P(XR,YC,ZB),P(XL,YC,ZB)];
+  poly(ctx,b,"rgba(47,209,189,.08)",c,2.5);
+  ctx.setLineDash([8,6]);
+  [[XL,0],[XR,0],[XR,YC],[XL,YC]].forEach(([x,y])=>line(ctx,P(x,y,ZB),P(x,y,ZF+100),c,1.5));
+  ctx.setLineDash([]);
+  ctx.beginPath();ctx.arc(CX,CY,7,0,7);ctx.fillStyle="#ff7a59";ctx.fill();
+  ctx.font="600 20px 'IBM Plex Sans KR',sans-serif";
+  const lab=(t,x,y)=>{const w=ctx.measureText(t).width+14;ctx.fillStyle="rgba(15,22,23,.82)";ctx.fillRect(x,y-22,w,28);ctx.fillStyle="#fff";ctx.fillText(t,x+7,y-1);};
+  lab("소실점",CX+10,CY-8);
+  (ai.back_openings||[]).forEach(o=>{const x0=NUM(o.x0,0)*1200,y0=NUM(o.y0,0)*800,x1=NUM(o.x1,0)*1200,y1=NUM(o.y1,0)*800;ctx.strokeStyle="#ffd166";ctx.lineWidth=2.5;ctx.strokeRect(x0,y0,x1-x0,y1-y0);lab(o.kind==="door"?"문 (유지)":"창 (유지)",x0,y0-4);});
+  (ai.side_openings||[]).forEach(o=>{const xa=NUM(o.x_near,0)*1200,xb=NUM(o.x_far,0)*1200,yt=NUM(o.y_top_near,0)*800;line(ctx,[xa,yt],[xa,800],"#ffd166",2.5);line(ctx,[xb,yt+40],[xb,700],"#ffd166",2.5);lab(o.kind==="window"?"창 (유지)":"문 (유지)",Math.min(xa,xb),yt-4);});
+  (ai.furniture||[]).slice(0,8).forEach(f=>{const x=NUM(f.x,.5)*1200,y=NUM(f.y_floor,.8)*800;ctx.beginPath();ctx.arc(x,y,6,0,7);ctx.fillStyle="#fff";ctx.fill();lab(TYPE_KO[f.type]||"가구",x+8,y-6);});
+  setGeo(GEO0);maskFrame(ctx);
+  lab("벽체·창호·문 위치와 천장고 고정",(FRAME?FRAME[0]:0)+16,786);
+}
+
+/* Claude에게 보내는 분석 요청 */
+function analysisPrompt(sc,st){
+  const S_=SCENARIOS[sc],T=STYLES[st];
+  return `You are assisting a Korean interior architecture student team. Look at the attached interior photo (1200x800 frame). All coordinates are normalized 0..1, x from the left edge, y from the top edge.
+
+SAFETY FIRST: if the photo shows any person or body part, nudity or suggestive content, identity documents, addresses or private papers, or is not an indoor room, return {"ok":false,"reason_ko":"<짧은 한국어 이유>"} and nothing else.
+
+Otherwise return ONLY this JSON:
+{"ok":true,
+ "room_type":"living|bedroom|studio|kitchen|other",
+ "back_wall":{"x0":..,"y0":..,"x1":..,"y1":..},   // the far wall facing the camera: left edge, ceiling line, right edge, floor line. Estimate hidden parts.
+ "vanishing_point":{"x":..,"y":..},              // where the side walls' floor and ceiling edge lines converge (camera eye height). Usually inside the back wall; it may lie left or right of it when the camera is turned toward a side wall.
+ "back_openings":[{"kind":"window|door","x0":..,"y0":..,"x1":..,"y1":..,"panes":2}],
+ "side_openings":[{"wall":"left|right","kind":"window|door","x_near":..,"x_far":..,"y_top_near":..,"panes":2,"sill_mm":900}],  // image x of the opening's near and far vertical edges, image y of its top at the near edge; panes = number of vertical sash panels; sill_mm = window sill height above floor
+ "furniture":[{"type":"sofa|bed|desk|table|chair|wardrobe|cabinet|tv_stand|shelf|other","wall":"back|left|right|free","x":..,"y_floor":..,"w_mm":..}],  // x,y_floor = image point where the item's front-center touches the floor; w_mm = estimated real width along the wall (for a bed: its width); at most 8 main items, skip small objects, clothes racks and fans
+ "condition_ko":["..."],   // up to 4 short observations of aged or damaged finishes, in Korean (e.g. "벽지 변색", "장판 들뜸"); empty if none
+ "proposal_ko":{"wall":"..","floor":"..","light":"..","window":"..","furniture":"..","extra":".."},  // short Korean remodeling instructions
+ "summary_ko":".."}        // one Korean sentence describing the remodel
+
+Remodeling brief for proposal_ko: scenario = ${S_.name} (${S_.desc}); style = ${T.name} (${T.desc}; wall ${T.wall}, floor ${T.floor}, light ${T.light}, window ${T.window}, furniture ${T.furn}).
+If the photo has dark bars on its sides, ignore them: coordinates still refer to the whole 1200x800 frame. The back wall's corners may lie outside the photo (values below 0 or above 1 are allowed) when the camera is turned toward a side wall.
+Wide-angle or corner photos: the back wall is the wall the camera faces most directly; if its top and bottom edges are slanted, use their average heights. A window on the wall that recedes to the side is a side_opening, not a back_opening.
+Ignore calendars, posters, cables and other small loose items (they will not appear in the result).
+Rules: keep wall positions, window and door positions and sizes, and ceiling height unchanged; change only finishes, furniture, storage and lighting. Never mention brand names, designers, artists or specific product names.${st==="hanok"?" Do not use Japanese elements (tatami, shoji); keep it Korean hanok.":""}`;
+}
+
+/* ---------- 업로드 사진 색감 미리보기 ---------- */
+let FRAME=null;
+function coverDraw(ctx,img,keepWhole){
+  const ar=img.width/img.height,fit=keepWhole&&ar<1.3;
+  const r=fit?Math.min(1200/img.width,800/img.height):Math.max(1200/img.width,800/img.height),w=img.width*r,h=img.height*r;
+  ctx.clearRect(0,0,1200,800);
+  if(fit){ctx.fillStyle="#1c2427";ctx.fillRect(0,0,1200,800);}
+  ctx.drawImage(img,(1200-w)/2,(800-h)/2,w,h);
+  if(keepWhole)FRAME=fit?[(1200-w)/2,(800-h)/2,w,h]:null;
+}
+function grade(src,dst,style){
+  const G={nordic:{b:14,w:8,s:.84,c:.95},minimal:{b:22,w:-2,s:.68,c:.9},hanok:{b:6,w:18,s:.92,c:1.02}}[style];
+  const d=src.getImageData(0,0,1200,800),a=d.data;
+  for(let i=0;i<a.length;i+=4){
+    let r=a[i],g=a[i+1],b=a[i+2];
+    r=(r-128)*G.c+128+G.b;g=(g-128)*G.c+128+G.b;b=(b-128)*G.c+128+G.b;
+    const l=.299*r+.587*g+.114*b;r=l+(r-l)*G.s;g=l+(g-l)*G.s;b=l+(b-l)*G.s;
+    r+=G.w;g+=G.w*.25;b-=G.w*.8;
+    a[i]=r;a[i+1]=g;a[i+2]=b;
+  }
+  dst.putImageData(d,0,0);
+}
+
+/* ---------- 시나리오별 가구 재배치 (벽·창·문은 고정, 가구는 새로 계획) ----------
+   치수 기준(mm): 슈퍼싱글 1,100×2,000 / 붙박이장 깊이 600 / 책상 1,200×600, 의자 뒤 여유 750
+   통로 900 이상(1인가구), 1,200 이상(노후주택 거실) / 소파 2,000×850, 소파-TV 1,800 이상 */
+let LAST_PLAN=null;
+function planLayout(R){
+  const{XL,XR,hideL,hideR,backOps,sideOps,scenario}=R,W=XR-XL,items=[],notes=[];
+  const sideFree=(wall,z0,z1,clr)=>!sideOps.some(o=>o.wall===wall&&o.z1+(o.kind==="door"?clr:0)>z0&&o.z0-(o.kind==="door"?clr:0)<z1);
+  const fitSide=(wall,len,zMax,zMin,clr)=>{for(let z1=zMax;z1-len>=zMin;z1-=100)if(sideFree(wall,z1-len,z1,clr))return[z1-len,z1];return null;};
+  const backBlocked=(a,b,h)=>backOps.some(o=>o.b>a&&o.a<b&&(o.kind==="door"||h>o.sill-30));
+  const fitBack=(len,h,from,to,pref,occ)=>{let best=null,bd=1e9;for(let a=from;a+len<=to;a+=50){const b=a+len;if(backBlocked(a,b,h))continue;if(occ&&occ.some(o=>o[1]>a-20&&o[0]<b+20))continue;const d=Math.abs((a+b)/2-pref);if(d<bd){bd=d;best=[a,b];}}return best;};
+  const sides=[...(hideL?[]:["left"]),...(hideR?[]:["right"])];
+  const wx=(wall,d)=>wall==="left"?[XL,XL+d]:[XR-d,XR];
+  const ko=w=>w==="left"?"왼쪽 벽":"오른쪽 벽";
+  const win=backOps.find(o=>o.kind!=="door");
+  if(scenario==="single"){
+    // 1) 수면 존: 문에서 먼 안쪽, 창이 적은 옆벽
+    let bedSide=null,bz=null;
+    sides.map(s=>[s,fitSide(s,2000,ZB,ZB-3200,900)]).filter(q=>q[1]).sort((a,b)=>b[1][1]-a[1][1]).slice(0,1).forEach(q=>{bedSide=q[0];bz=q[1];});
+    let occBack=[];
+    if(bedSide){const[x0,x1]=wx(bedSide,1100);items.push({type:"bed",wall:bedSide,x0,x1,z0:bz[0],z1:bz[1],storage:true});if(bz[1]>ZB-600)occBack.push([x0,x1]);
+      notes.push(`수면: ${ko(bedSide)}에 `+(R.style==="minimal"?"낮은 플랫폼 침대 1,100×2,000 (하부 수납, 손잡이 없는 면)":R.style==="nordic"?"원목 프레임 침대 1,100×2,000 (다리를 띄워 바닥이 보이게 → 넓어 보임)":"낮은 평상형 침대 1,100×2,000 (좌식 생활 높이에 맞춤)"));}
+    else{const r=fitBack(2000,600,XL,XR,XR-1000);if(r){items.push({type:"bed",wall:"back",x0:r[0],x1:r[0]+2000,z0:ZB-1100,z1:ZB,storage:true});occBack.push(r);notes.push("수면: 안쪽 벽을 따라 수납형 침대 2,000×1,100");}}
+    // 2) 수납 존: 반대쪽 옆벽에 천장까지 붙박이장
+    const other=sides.find(s=>s!==bedSide);let stored=false;
+    if(other){for(const len of[2000,1600,1200,900]){const z=fitSide(other,len,ZB,ZB-3000,900);if(z){const[x0,x1]=wx(other,600);items.push({type:"wardrobe",wall:other,x0,x1,z0:z[0],z1:z[1]});if(z[1]>ZB-1300)occBack.push([x0,x1]);
+      notes.push(`수납: ${ko(other)}에 천장까지 붙박이장 ${len.toLocaleString()}×600 (문짝 일체형으로 벽처럼 정리)`);stored=true;break;}}}
+    if(!stored){for(const len of[1200,900]){const r=fitBack(len,2400,XL,XR,bedSide==="left"?XR:XL,occBack);
+      if(r){items.push({type:"wardrobe",wall:"back",x0:r[0],x1:r[1],z0:ZB-600,z1:ZB});occBack.push(r);notes.push(`수납: 안쪽 벽 모서리에 천장까지 붙박이장 ${len.toLocaleString()}×600`);break;}}}
+    // 3) 작업 존: 창 앞(자연광) 벽부착 책상 + 위 선반
+    let fl=XL,fr=XR;occBack.forEach(([a,b])=>{if(a<=XL+10)fl=Math.max(fl,b+100);if(b>=XR-10)fr=Math.min(fr,a-100);});
+    const dw=Math.floor(Math.min(1200,fr-fl)/50)*50;
+    if(dw>=800){const pref=win?(win.a+win.b)/2:(fl+fr)/2,a=CL(pref-dw/2,fl,fr-dw);
+      items.push({type:"desk",wall:"back",x0:a,x1:a+dw,z0:ZB-550,z1:ZB});items.push({type:"chair",wall:"free",x0:a+dw/2-230,x1:a+dw/2+230,z0:ZB-1000,z1:ZB-560});
+      if(!backBlocked(a,a+dw,1450)||!win)items.push({type:"wallshelf",wall:"back",x0:a,x1:a+dw,z0:ZB-250,z1:ZB});
+      notes.push(`작업: ${win?"창 앞에":"안쪽 벽에"} 벽부착 책상 ${Math.round(dw).toLocaleString()}×550${win?" (낮에는 자연광으로 작업)":""}`);}
+    // 4) 비움: 가운데 통로
+    const used=items.filter(i=>i.wall==="left"||i.wall==="right").reduce((s,i)=>s+(i.x1-i.x0),0);
+    // 5) 생활 존: 가운데 앞쪽에 식사·휴식용 원형 테이블 (통로 900 유지)
+    const sideItems=items.filter(i=>i.wall==="left"||i.wall==="right");
+    let gl=XL,gr=XR;sideItems.forEach(i=>{if(i.wall==="left")gl=Math.max(gl,i.x1);else gr=Math.min(gr,i.x0);});
+    const zc=ZB-2150,hk=R.style==="hanok";
+    if(gr-gl>=1700){const cx=(gl+gr)/2+((bedSide==="left")?120:-120);items.push({type:"dining",wall:"free",x0:cx-350,x1:cx+350,z0:zc-350,z1:zc+350,hanok:hk});
+      notes.push(hk?"생활: 가운데에 소반 Ø700 + 방석 2 (식사·차·손님 겸용, 치우면 바닥 전체 사용)":R.style==="minimal"?"생활: 가운데에 정사각 테이블 700 + 큐브 스툴 2 (스툴은 테이블 아래로 수납)":"생활: 가운데에 원목 원형 테이블 Ø700 + 의자 2 (식사·손님 겸용)");
+      if(gr-gl>=2300&&R.style!=="minimal"){const lx=bedSide==="left"?gr-260:gl+60;items.push({type:"floorlamp",wall:"free",x0:lx,x1:lx+200,z0:zc+420,z1:zc+620,hanok:hk});}}
+    if(bedSide&&R.style!=="minimal"){const b=items.find(i=>i.type==="bed");items.push({type:"art",wall:bedSide,x0:b.x0,x1:b.x1,z0:b.z0+350,z1:b.z1-250});
+      notes.push(`장식: 침대 위 ${ko(bedSide)}에 직접 만든 추상 그림 액자 · 머리맡 벽 조명`);}
+    const dk=items.find(i=>i.type==="desk");if(dk)items.push({type:"deskset",wall:"back",x0:dk.x0,x1:dk.x1,z0:dk.z0,z1:dk.z1});
+    notes.push(R.style==="minimal"?"조명: 간접조명 + 매입등 + 책상등, 장식 소품은 최소로":R.style==="nordic"?"조명: 펜던트 + 플로어 스탠드 + 책상등, 패브릭·식물로 따뜻하게":"조명: 한지 등 + 한지 스탠드 + 책상등, 낮은 시선의 좌식 생활");
+    notes.push(`통로: 가구 사이 900mm 이상 유지`);
+    items.push({type:"rug",wall:"free",x0:XL+(bedSide==="left"?1250:other==="left"?700:300),x1:XR-(bedSide==="right"?1250:other==="right"?700:300),z0:ZB-2600,z1:ZB-1150});
+    if(R.style==="nordic"&&bedSide){items.push({type:"accentwall",wall:bedSide,x0:0,x1:0,z0:ZF,z1:ZB});notes.push(`색: 침대 쪽 ${ko(bedSide)}만 세이지 그린 포인트 벽, 나머지는 따뜻한 화이트`);}
+    if(R.style==="minimal"){items.push({type:"cove",wall:"free",x0:XL,x1:XR,z0:ZF,z1:ZB});notes.push("조명: 천장 가장자리 간접조명 라인으로 그림자 없이 균일하게");}
+  }else{
+    // 노후주택 거실: 소파 ↔ TV 마주보기, 넓은 통로, 낮은 수납, 문턱 없는 바닥
+    let sofaSide=null,sz=null;
+    sides.map(s=>[s,fitSide(s,2000,ZB-500,ZB-3400,900)]).filter(q=>q[1]).sort((a,b)=>b[1][1]-a[1][1]).slice(0,1).forEach(q=>{sofaSide=q[0];sz=q[1];});
+    if(sofaSide){const[x0,x1]=wx(sofaSide,850);items.push({type:"sofa",wall:sofaSide,x0,x1,z0:sz[0],z1:sz[1]});notes.push(`휴식: ${ko(sofaSide)}에 소파 2,000×850 (앉고 일어서기 쉬운 좌면 높이)`);
+      const tvSide=sides.find(s=>s!==sofaSide);const zc=(sz[0]+sz[1])/2;
+      if(tvSide&&W>=3000){const z=fitSide(tvSide,1600,Math.min(ZB,zc+800+600),ZB-3400,900)||fitSide(tvSide,1600,ZB,ZB-3400,900);if(z){const[t0,t1]=wx(tvSide,420);items.push({type:"tv_stand",wall:tvSide,x0:t0,x1:t1,z0:z[0],z1:z[1]});notes.push(`미디어: 마주 보는 ${ko(tvSide)}에 낮은 TV 수납장 1,600×420 (소파와 ${Math.round((W-1270)/100)*100}mm)`);}
+        else notes.push(`미디어: ${ko(tvSide)}은 문 열림 공간이라 TV를 두지 않음`);}
+      else{const r=fitBack(1600,600,XL,XR,0);if(r){items.push({type:"tv_stand",wall:"back",x0:r[0],x1:r[1],z0:ZB-420,z1:ZB});notes.push("미디어: 안쪽 벽 낮은 수납장 1,600×420");}}
+      const gap=W-850-420;if(gap>=2200){const cx=sofaSide==="left"?XL+850+450+450:XR-850-450-450;items.push({type:"table",wall:"free",x0:cx-450,x1:cx+450,z0:zc-250,z1:zc+250});notes.push("테이블: 모서리 둥근 낮은 테이블 900×500 (소파와 450 거리)");}
+      items.push({type:"rug",wall:"free",x0:sofaSide==="left"?XL+700:XL+1500,x1:sofaSide==="left"?XR-1500:XR-700,z0:zc-900,z1:zc+900});}
+    else{const r=fitBack(2000,850,XL,XR,0);if(r){items.push({type:"sofa",wall:"back",x0:r[0],x1:r[1],z0:ZB-850,z1:ZB});notes.push("휴식: 안쪽 벽에 소파 2,000×850");}}
+    // 안쪽 벽: 창 아래 낮은 수납(창 높이 침범 X), 모서리 키큰 수납
+    const occ=items.filter(i=>i.z1>ZB-700&&i.type!=="rug"&&i.type!=="table").map(i=>[i.x0,i.x1]);
+    const freeB=(a,b)=>!occ.some(o=>o[1]>a-50&&o[0]<b+50);
+    const lowR=fitBack(1200,600,XL,XR,win?(win.a+win.b)/2:0,occ.map(o=>[o[0]-30,o[1]+30]));
+    if(lowR){items.push({type:"cabinet",wall:"back",x0:lowR[0],x1:lowR[1],z0:ZB-450,z1:ZB});occ.push(lowR);notes.push("수납: 창 아래 낮은 수납장 1,200×450 (창을 가리지 않는 높이)");}
+    for(const a of[XR-800,XL]){const b=a+800;if(a>=XL&&b<=XR&&freeB(a,b)&&!backBlocked(a,b,2000)){items.push({type:"shelf",wall:"back",x0:a,x1:b,z0:ZB-350,z1:ZB});occ.push([a,b]);notes.push("수납: 모서리 키큰 선반 800×350");break;}}
+    notes.push("통로: 출입 동선 1,200mm 이상 비움 · 바닥 문턱 없애고 미끄럼 적은 마감");
+  }
+  // 식물(북유럽): 비어 있는 안쪽 모서리
+  if(R.style==="nordic"){const occ=items.filter(i=>i.z1>ZB-900&&i.type!=="rug").map(i=>[i.x0,i.x1]);for(const a of[XR-420,XL+60])if(!occ.some(o=>o[1]>a-50&&o[0]<a+410)&&!backBlocked(a,a+360,900)){items.push({type:"plant",wall:"free",x0:a,x1:a+300,z0:ZB-500,z1:ZB-200});break;}}
+  LAST_PLAN={scenario,notes};
+  const FIRST=["accentwall","cove","rug"],rugs=items.filter(i=>FIRST.includes(i.type)).sort((a,b)=>FIRST.indexOf(a.type)-FIRST.indexOf(b.type)),rest=items.filter(i=>!FIRST.includes(i.type)).sort((a,b)=>(b.z0+b.z1)-(a.z0+a.z1));
+  return[...rugs,...rest];
+}
+function drawPlanned(ctx,items,pal,st,single){
+  items.forEach(it=>{const{type,wall,x0,x1,z0,z1}=it;
+    if(type==="rug"){if(st==="nordic"||st==="hanok"){const c=st==="hanok"?"#d9cdb3":"#e9e3d6";poly(ctx,[P(x0,1,z0),P(x1,1,z0),P(x1,1,z1),P(x0,1,z1)],c,"rgba(0,0,0,.08)");
+      if(st==="nordic")for(let z=z0+150;z<z1-100;z+=260)poly(ctx,[P(x0+60,2,z),P(x1-60,2,z),P(x1-60,2,z+60),P(x0+60,2,z+60)],"#a9b39c");}return;}
+    if(type==="accentwall"){const xw=wall==="left"?XL+.5:XR-.5;TAG="wall";poly(ctx,[P(xw,0,z0),P(xw,0,z1),P(xw,YC,z1),P(xw,YC,z0)],pal.accentWall||pal.wall);TAG="";return;}
+    if(type==="cove"){TAG="";[[XL,XL+60],[XR-60,XR]].forEach(([a,b])=>box(ctx,[a,b,YC-60,YC-40,ZF+600,ZB-60],"#fffaf0"));box(ctx,[XL+60,XR-60,YC-60,YC-40,ZB-60,ZB],"#fffaf0");TAG="";return;}
+    if(type==="plant"){box(ctx,[x0,x1,0,360,z0,z1],"#e3ddd3");leaves(ctx,(x0+x1)/2,800,(z0+z1)/2,420,"#6f8f68");return;}
+    if(type==="wallshelf"){const c=st==="minimal"?pal.white:st==="hanok"?pal.wood:pal.woodL;[1450,1800].forEach(y=>box(ctx,[x0,x1,y,y+30,z0,z1],c));
+      [[x0+80,x0+200,"#cfc7b8",220],[x0+220,x0+300,pal.accent,250],[x1-260,x1-120,"#a8a39a",200]].forEach(([a,b,cc,h])=>box(ctx,[a,b,1480,1480+h,z0+30,z1-20],cc));return;}
+    if(type==="tv_stand"&&(wall==="left"||wall==="right")){const c=st==="minimal"?pal.white:st==="hanok"?pal.wood:pal.woodL;box(ctx,[x0,x1,0,st==="minimal"?450:520,z0,z1],c);
+      const zm=(z0+z1)/2,xf=wall==="left"?XL:XR;box(ctx,wall==="left"?[xf+30,xf+60,850,1500,zm-580,zm+580]:[xf-60,xf-30,850,1500,zm-580,zm+580],"#262b2d");return;}
+    if(type==="dining"){const cx=(x0+x1)/2,cz=(z0+z1)/2,wd=st==="minimal"?pal.white:st==="hanok"?pal.wood:pal.woodL;
+      if(it.hanok){box(ctx,[cx-60,cx+60,0,280,cz-60,cz+60],shade(pal.wood,.85));disc(ctx,cx,280,cz,340,shade(pal.wood,.8));disc(ctx,cx,300,cz,340,pal.wood,"rgba(0,0,0,.15)");
+        [[cx-560,cz+120],[cx+440,cz-260]].forEach(([a,z])=>box(ctx,[a,a+420,0,90,z,z+420],"#d9cdb3"));return;}
+      if(st==="minimal"){box(ctx,[cx-350,cx+350,700,730,cz-350,cz+350],pal.white);[[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([a,b])=>box(ctx,[cx+a*330-15,cx+a*330+15,0,700,cz+b*330-15,cz+b*330+15],"#d4d0c8"));
+        [[cx-640,cz-180],[cx+290,cz+20]].forEach(([a,z])=>box(ctx,[a,a+350,0,420,z,z+350],"#e2dfd8"));box(ctx,[cx-80,cx+80,730,750,cz-60,cz+60],"#f4f2ee");return;}
+      if(st==="nordic"){box(ctx,[cx-30,cx+30,0,720,cz-30,cz+30],pal.wood);box(ctx,[cx-220,cx+220,0,20,cz-220,cz+220],pal.wood);disc(ctx,cx,720,cz,350,shade(wd,.88));disc(ctx,cx,740,cz,350,wd,"rgba(0,0,0,.12)");
+        [[cx-640,cz-200,1],[cx+260,cz+30,-1]].forEach(([a,z,f])=>{const t=30;[[a+20,z+20],[a+350,z+20],[a+20,z+350],[a+350,z+350]].forEach(([u,v])=>box(ctx,[u,u+t,0,450,v,v+t],pal.wood));
+          box(ctx,[a,a+400,450,490,z,z+400],pal.woodL);const bx=f>0?a:a+370;box(ctx,[bx,bx+30,490,850,z,z+400],pal.wood);box(ctx,[f>0?a:a+370,f>0?a+30:a+400,760,850,z,z+400],pal.woodL);});
+        box(ctx,[cx-90,cx+90,742,760,cz-60,cz+80],"#f4f2ee");box(ctx,[cx+120,cx+190,742,840,cz-30,cz+40],"#e9e4da");return;}
+      box(ctx,[cx-30,cx+30,0,720,cz-30,cz+30],st==="minimal"?"#cfccc4":pal.wood);box(ctx,[cx-220,cx+220,0,20,cz-220,cz+220],st==="minimal"?"#cfccc4":pal.wood);
+      disc(ctx,cx,720,cz,350,shade(wd,.88));disc(ctx,cx,740,cz,350,wd,"rgba(0,0,0,.12)");
+      [[cx-560,cz-80],[cx+380,cz+60]].forEach(([a,z])=>{box(ctx,[a+60,a+120,0,430,z+60,z+120],st==="minimal"?"#cfccc4":pal.wood);disc(ctx,a+90,430,z+90,170,st==="minimal"?"#e2ded6":pal.fabric);disc(ctx,a+90,460,z+90,170,st==="minimal"?"#ebe8e1":shade(pal.fabric,1.05),"rgba(0,0,0,.1)");});
+      box(ctx,[cx-90,cx+90,742,760,cz-60,cz+80],"#f4f2ee");box(ctx,[cx+120,cx+190,742,840,cz-30,cz+40],"#e9e4da");return;}
+    if(type==="floorlamp"){const cx=(x0+x1)/2,cz=(z0+z1)/2;box(ctx,[cx-150,cx+150,0,25,cz-150,cz+150],"#3c3c3a");box(ctx,[cx-12,cx+12,25,1450,cz-12,cz+12],"#3c3c3a");
+      TAG="lamp";box(ctx,[cx-170,cx+170,1450,1720,cz-170,cz+170],it.hanok?"#f8ecd4":"#f6efe2");TAG="";return;}
+    if(type==="art"){const xw=wall==="left"?XL+3:XR-3,sg=wall==="left"?1:-1,zm=(z0+z1)/2,wd=Math.min(1200,z1-z0),y0=1350,y1=1950;
+      box(ctx,[Math.min(xw,xw+sg*30),Math.max(xw,xw+sg*30),y0-30,y1+30,zm-wd/2-30,zm+wd/2+30],st==="hanok"?pal.wood:st==="minimal"?"#e8e6e1":pal.woodL);
+      const xa=xw+sg*32,pt=(z,y)=>P(xa,y,z);poly(ctx,[pt(zm-wd/2,y0),pt(zm+wd/2,y0),pt(zm+wd/2,y1),pt(zm-wd/2,y1)],"#f4f1ea");
+      const cols=st==="hanok"?["#3f5f63","#b8955a","#8c5a3c"]:st==="minimal"?["#c9c4ba","#9d9890","#e3dfd6"]:["#a7b59c","#d9b48a","#8fa3ad"];
+      const xb=xw+sg*34,pb=(z,y)=>P(xb,y,z);poly(ctx,[pb(zm-wd/2+80,y0+80),pb(zm-40,y0+80),pb(zm-40,y1-160),pb(zm-wd/2+80,y1-160)],cols[0]);
+      poly(ctx,[pb(zm+20,y0+80),pb(zm+wd/2-80,y0+80),pb(zm+wd/2-80,y0+300),pb(zm+20,y0+300)],cols[1]);
+      poly(ctx,[pb(zm+20,y0+360),pb(zm+wd/2-80,y0+360),pb(zm+wd/2-80,y1-80),pb(zm+20,y1-80)],cols[2]);return;}
+    if(type==="deskset"){const t=760;box(ctx,[x0+120,x0+460,t,t+18,z1-420,z1-170],"#5c6062");box(ctx,[x0+130,x0+450,t+18,t+230,z1-180,z1-165],"#3b3f41");
+      box(ctx,[x1-200,x1-180,t,t+420,z1-160,z1-140],"#3c3c3a");TAG="lamp";box(ctx,[x1-330,x1-150,t+380,t+450,z1-290,z1-110],"#fff1d6");TAG="";
+      box(ctx,[x1-560,x1-360,t,t+60,z1-300,z1-80],"#d9d3c7");box(ctx,[x1-550,x1-370,t+60,t+100,z1-290,z1-90],pal.accent);return;}
+    if(type==="chair"){const c=st==="hanok"?pal.wood:st==="minimal"?"#d9d6cf":pal.fabric,lc=st==="minimal"?"#cfccc4":st==="hanok"?shade(pal.wood,.8):pal.wood,t=30;
+      [[x0+20,z0+20],[x1-20-t,z0+20],[x0+20,z1-20-t],[x1-20-t,z1-20-t]].forEach(([a,z])=>box(ctx,[a,a+t,0,440,z,z+t],lc));
+      box(ctx,[x0,x1,440,480,z0,z1],c);box(ctx,[x0,x1,480,850,z0,z0+35],c);return;}
+    if(type==="bed"&&(st==="minimal"||st==="nordic"||st==="hanok")&&(wall==="left"||wall==="right")){
+      if(st==="minimal"){box(ctx,[x0,x1,0,280,z0,z1],pal.white);box(ctx,[x0+15,x1-15,280,480,z0+15,z1-15],"#f7f6f3");box(ctx,[x0,x1,480,520,z0+10,z1-700],"#d6d2ca");}
+      else if(st==="nordic"){const t=60;[[x0+30,z0+30],[x1-30-t,z0+30],[x0+30,z1-30-t],[x1-30-t,z1-30-t]].forEach(([a,z])=>box(ctx,[a,a+t,0,220,z,z+t],pal.wood));
+        box(ctx,[x0,x1,220,380,z0,z1],pal.woodL);box(ctx,[x0,x1,0,1050,z1-50,z1],pal.wood);box(ctx,[x0+20,x1-20,380,580,z0+20,z1-60],"#f6f4ef");box(ctx,[x0-15,x1+15,580,610,z0+10,z1-650],"#cfc6b4");}
+      else{box(ctx,[x0,x1,0,300,z0,z1],pal.wood);box(ctx,[x0+40,x1-40,300,400,z0+40,z1-40],"#f3efe6");box(ctx,[x0+30,x1-30,400,440,z0+40,z1-700],pal.accent);}
+      const fh=st==="minimal"?480:st==="nordic"?580:400;box(ctx,[x0+100,x1-100,fh,fh+120,z1-560,z1-140],"#fbfaf7");if(st!=="minimal")box(ctx,[x0+140,x1-140,fh+120,fh+200,z1-520,z1-180],st==="hanok"?"#e9dcc0":"#e8e2d5");
+      if(st==="nordic")box(ctx,[x0-10,x1+10,fh+30,fh+60,z0+120,z0+600],"#d9b48a");return;}
+    drawItem(ctx,it,pal,st,single);
+    if(type==="bed"&&it.storage){const fh=440,xf=wall==="left"?x1:wall==="right"?x0:null;
+      if(xf!==null){const L=z1-z0;[[z0+150,z0+L/2-40],[z0+L/2+40,z1-150]].forEach(([a,b])=>{line(ctx,P(xf,70,a),P(xf,70,b),"rgba(0,0,0,.28)",1);line(ctx,P(xf,fh-70,a),P(xf,fh-70,b),"rgba(0,0,0,.28)",1);line(ctx,P(xf,70,a),P(xf,fh-70,a),"rgba(0,0,0,.28)",1);line(ctx,P(xf,70,b),P(xf,fh-70,b),"rgba(0,0,0,.28)",1);});}}
+    if(type==="wardrobe"&&(wall==="left"||wall==="right")){const xf=wall==="left"?x1:x0,sg=wall==="left"?1:-1,face=st==="hanok"?pal.woodL:pal.white;for(let z=z0+450;z<z1-100;z+=450)line(ctx,P(xf,40,z),P(xf,2360,z),"rgba(0,0,0,.25)",1);
+      // 앞쪽 끝 칸: 오픈 수납(책·소품), 그 옆 칸: 전신 거울 문
+      const n0=z0,n1=z0+440,xi=xf-sg*380;if(st!=="minimal"){box(ctx,[Math.min(xi,xf),Math.max(xi,xf),40,2360,n0+20,n1-20],shade(face,.72));
+      [520,980,1440,1900].forEach(y=>box(ctx,[Math.min(xi,xf),Math.max(xi,xf)+(sg>0?6:0),y,y+25,n0+20,n1-20],face));
+      [[560,"#cfc7b8",220],[1020,pal.accent,180],[1480,"#a8a39a",240],[1940,"#d9d3c7",200]].forEach(([y,c,h],k)=>box(ctx,[Math.min(xi,xf)+40,Math.max(xi,xf)-40,y+25,y+25+h,n0+60+k*30,n0+60+k*30+(k%2?150:110)],c));}
+      if(z1-z0>=1300){const m0=n1+30,m1=n1+420;poly(ctx,[P(xf+sg*2,150,m0),P(xf+sg*2,150,m1),P(xf+sg*2,2150,m1),P(xf+sg*2,2150,m0)],"#cdd9dd","rgba(0,0,0,.15)");}}
+    if(type==="bed"&&!it.storage)return;
+    if(type==="bed"){const fh=440,acc=st==="hanok"?"#c9b48a":st==="minimal"?"#cfcac0":"#a7b59c";
+      if(wall==="left"||wall==="right"){box(ctx,[x0+90,x1-90,fh+200,fh+330,z1-560,z1-130],"#fbfaf7");box(ctx,[x0+130,x1-130,fh+330,fh+420,z1-520,z1-170],shade("#f3f1ec",.97));
+        box(ctx,[x0-10,x1+10,fh+240,fh+275,z0+120,z0+620],acc);
+        const xw=wall==="left"?XL:XR,sg=wall==="left"?1:-1;box(ctx,[Math.min(xw,xw+sg*90),Math.max(xw,xw+sg*90),1050,1075,z1-420,z1-20],st==="minimal"?pal.white:pal.woodL);
+        box(ctx,[Math.min(xw+sg*20,xw+sg*70),Math.max(xw+sg*20,xw+sg*70),1075,1235,z1-300,z1-150],"#d9d3c7");
+        TAG="lamp";box(ctx,[Math.min(xw,xw+sg*120),Math.max(xw,xw+sg*120),1500,1620,z1-260,z1-140],"#fff3dc");TAG="";}}
+  });
+}
+
+/* ---------- 실사 렌더 (광선 추적 · 간접광 · 부드러운 그림자) ---------- */
+function recLights(ctx,pal,st){
+  const L=(b,c)=>{TAG="lamp";box(ctx,b,c);TAG="";};
+  if(st==="before"){box(ctx,[-520,520,2350,2400,3000,3160],"#d8dcd4");L([-480,480,2330,2350,3020,3140],"#eef2ea");}
+  else if(st==="nordic"){box(ctx,[-12,12,1990,2400,3188,3212],"#555555");box(ctx,[-230,230,1830,1990,2970,3430],"#e8e4dc");L([-200,200,1815,1830,3000,3400],"#fff6df");}
+  else if(st==="minimal"){[[-1000,2700],[1000,2700],[-1000,3700],[1000,3700],[0,3200]].forEach(([x,z])=>L([x-70,x+70,2392,2400,z-70,z+70],"#fffef6"));}
+  else{box(ctx,[-10,10,2060,2400,3190,3210],"#3c2a1a");L([-170,170,1690,2030,3100,3300],"#f8ecd4");box(ctx,[-180,180,2030,2060,3090,3310],pal.wood);box(ctx,[-180,180,1660,1690,3090,3310],pal.wood);}
+}
+function parseCol(c){
+  if(c&&typeof c==="object"&&c.stops){const v=c.stops.map(parseCol);if(!v.length)return[.8,.8,.8,1];const o=[0,0,0,0];v.forEach(q=>{for(let i=0;i<4;i++)o[i]+=q[i]/v.length;});return o;}
+  c=String(c||"#cccccc").trim();
+  if(c[0]==="#"){if(c.length===4)c="#"+c[1]+c[1]+c[2]+c[2]+c[3]+c[3];const[r,g,b]=rgb(c);return[r/255,g/255,b/255,1];}
+  const m=c.match(/rgba?\(([^)]+)\)/);if(m){const p=m[1].split(",").map(Number);return[p[0]/255,p[1]/255,p[2]/255,p.length>3?p[3]:1];}
+  return[.8,.8,.8,1];
+}
+function recCtx(){
+  const g=()=>({stops:[],addColorStop(o,c){this.stops.push(c);}});
+  const f=()=>{};
+  return{save:f,restore:f,clearRect:f,fillRect:f,beginPath:f,moveTo:f,lineTo:f,closePath:f,fill:f,stroke:f,ellipse:f,arc:f,setLineDash:f,setTransform:f,drawImage:f,fillText:f,strokeRect:f,
+    measureText:()=>({width:0}),createLinearGradient:g,createRadialGradient:g,translate(x,y){REC.ty+=y;}};
+}
+/* 지금 After 장면을 3D 재료 목록으로 받아 적기 */
+function captureScene(kind,arg,st,sc){
+  REC={items:[],geo:null,room:null,ty:0};TAG="";
+  try{const c=recCtx();if(kind==="photo")drawPhotoScene(c,arg,st,sc);else drawScene(c,arg,st,sc);}
+  finally{var R_=REC;REC=null;TAG="";setGeo(GEO0);}
+  if(!R_.geo||!R_.room)return null;
+  const tris=[],mids=[],mats=[],mkey={};
+  const SL=v=>v<=.04045?v/12.92:Math.pow((v+.055)/1.055,2.4);
+  const mat=(c,tag)=>{const q=parseCol(c);const k=q.map(v=>v.toFixed(3)).join(",")+"|"+tag;if(mkey[k]!==undefined)return mkey[k];
+    const m={a:[SL(q[0]),SL(q[1]),SL(q[2])],al:q[3],e:null,kind:0,gl:0,ro:0};
+    if(tag==="glass"){m.e=[3.4,3.55,3.8];}
+    if(tag==="lamp"){m.lamp=1;m.e=st==="before"?[9,10,9.5]:st==="minimal"?[16,15,13]:[16,12.5,8.5];if(st==="nordic")m.e=[20,16,10.5];}
+    if(tag==="floor"){m.kind=1;m.gl=st==="before"?.04:.09;m.ro=st==="before"?.25:.035;}
+    if(tag==="wall"||tag==="ceil")m.kind=2;
+    mats.push(m);return mkey[k]=mats.length-1;};
+  const g=R_.geo,cam=[g.XC,g.EYE,0];
+  const tri=(a,b,c,m)=>{tris.push(a[0],a[1],a[2],b[0],b[1],b[2],c[0],c[1],c[2]);mids.push(m);};
+  let layer=0;
+  const addPoly=(v,c,tag,noShift)=>{
+    const q=parseCol(c);if(q[3]<.3&&tag!=="glass")return;
+    let n=[0,0,0];for(let i=0;i<v.length;i++){const a=v[i],b=v[(i+1)%v.length];n[0]+=(a[1]-b[1])*(a[2]+b[2]);n[1]+=(a[2]-b[2])*(a[0]+b[0]);n[2]+=(a[0]-b[0])*(a[1]+b[1]);}
+    const l=Math.hypot(n[0],n[1],n[2]);if(l<1e-6)return;n=n.map(x=>x/l);
+    const sgn=((cam[0]-v[0][0])*n[0]+(cam[1]-v[0][1])*n[1]+(cam[2]-v[0][2])*n[2])>=0?1:-1;
+    const off=noShift?0:.012*(layer++);const w=v.map(p=>[p[0]+n[0]*sgn*off,p[1]+n[1]*sgn*off,p[2]+n[2]*sgn*off]);
+    const m=mat(c,tag);for(let i=1;i<w.length-1;i++)tri(w[0],w[i],w[i+1],m);};
+  let bidx=0;const addBox=(b,c,tag)=>{const gr=.03*(bidx++);
+    const x0=Math.min(b[0],b[1])-gr,x1=Math.max(b[0],b[1])+gr,y0=Math.min(b[2],b[3])-gr,y1=Math.max(b[2],b[3])+gr,z0=Math.min(b[4],b[5])-gr,z1=Math.max(b[4],b[5])+gr;
+    if(x1-x0<.5||y1-y0<.5||z1-z0<.5)return;const q=parseCol(c);if(q[3]<.3)return;const m=mat(c,tag);
+    const V=[[x0,y0,z0],[x1,y0,z0],[x1,y1,z0],[x0,y1,z0],[x0,y0,z1],[x1,y0,z1],[x1,y1,z1],[x0,y1,z1]];
+    [[0,1,2,3],[5,4,7,6],[4,0,3,7],[1,5,6,2],[3,2,6,7],[4,5,1,0]].forEach(f=>{tri(V[f[0]],V[f[1]],V[f[2]],m);tri(V[f[0]],V[f[2]],V[f[3]],m);});};
+  const addSphere=(o,r,c)=>{const m=mat(c,"");const n=8,mm=5,pt=(i,j)=>{const th=j/mm*Math.PI,ph=i/n*Math.PI*2;return[o[0]+r*Math.sin(th)*Math.cos(ph),o[1]+r*.8*Math.cos(th),o[2]+r*Math.sin(th)*Math.sin(ph)];};
+    for(let j=0;j<mm;j++)for(let i=0;i<n;i++){const a=pt(i,j),b=pt(i+1,j),c2=pt(i+1,j+1),d=pt(i,j+1);if(j>0)tri(a,b,c2,m);if(j<mm-1)tri(a,c2,d,m);}};
+  R_.items.forEach(it=>{if(it.k==="p")addPoly(it.v,it.c,it.tag);else if(it.k==="b")addBox(it.b,it.c,it.tag);else addSphere(it.o,it.r,it.c);});
+  // 사진에 안 보이는 앞쪽(카메라 뒤) 벽·바닥·천장을 닫아 실내 반사광을 만든다
+  const rm=R_.room,ZBK=-700,p=rm.pal;
+  addPoly([[rm.XLe,0,ZBK],[rm.XRe,0,ZBK],[rm.XRe,0,ZF+1],[rm.XLe,0,ZF+1]],p.floor,"floor",true);
+  addPoly([[rm.XLe,YC,ZBK],[rm.XRe,YC,ZBK],[rm.XRe,YC,ZF+1],[rm.XLe,YC,ZF+1]],p.ceil,"ceil",true);
+  addPoly([[rm.XLe,0,ZBK],[rm.XRe,0,ZBK],[rm.XRe,YC,ZBK],[rm.XLe,YC,ZBK]],p.wall,"wall",true);
+  addPoly([[rm.XLe,0,ZBK],[rm.XLe,0,ZB],[rm.XLe,YC,ZB],[rm.XLe,YC,ZBK]],p.wall,"wall",true);
+  addPoly([[rm.XRe,0,ZBK],[rm.XRe,0,ZB],[rm.XRe,YC,ZB],[rm.XRe,YC,ZBK]],p.wall,"wall",true);
+  return{tris:new Float64Array(tris),mids:new Int32Array(mids),mats,geo:{K:g.K,CX:g.CX,CY:g.CY+0,EYE:g.EYE,XC:g.XC,ty:R_.ty},style:st,W:RW,H:RH,s:1200/RW};
+}
+
+/* 광선 추적기 본체: 작업자(Worker)와 페이지 양쪽에서 같은 코드를 쓴다 */
+function PT_FACTORY(){
+return function makeTracer(sc){
+  const T=sc.tris,N=T.length/9,MID=sc.mids,MAT=sc.mats,G=sc.geo,W=sc.W,H=sc.H,ST=sc.style;
+  const V0=new Float64Array(N*3),E1=new Float64Array(N*3),E2=new Float64Array(N*3),NN=new Float64Array(N*3);
+  for(let i=0;i<N;i++){const o=i*9;for(let k=0;k<3;k++){V0[i*3+k]=T[o+k];E1[i*3+k]=T[o+3+k]-T[o+k];E2[i*3+k]=T[o+6+k]-T[o+k];}
+    const ax=E1[i*3],ay=E1[i*3+1],az=E1[i*3+2],bx=E2[i*3],by=E2[i*3+1],bz=E2[i*3+2];let nx=ay*bz-az*by,ny=az*bx-ax*bz,nz=ax*by-ay*bx;const l=Math.hypot(nx,ny,nz)||1;NN[i*3]=nx/l;NN[i*3+1]=ny/l;NN[i*3+2]=nz/l;}
+  // BVH
+  const idx=new Int32Array(N);for(let i=0;i<N;i++)idx[i]=i;
+  const cen=new Float64Array(N*3),tb=new Float64Array(N*6);
+  for(let i=0;i<N;i++){const o=i*9;for(let k=0;k<3;k++){const a=T[o+k],b=T[o+3+k],c=T[o+6+k];tb[i*6+k]=Math.min(a,b,c);tb[i*6+3+k]=Math.max(a,b,c);cen[i*3+k]=(a+b+c)/3;}}
+  const BN=[],BL=[],BR=[],BS=[],BC=[];
+  function build(s,e){
+    const id=BL.length;BL.push(0);BR.push(0);BS.push(0);BC.push(0);const bb=[1e30,1e30,1e30,-1e30,-1e30,-1e30];
+    for(let i=s;i<e;i++){const t=idx[i];for(let k=0;k<3;k++){bb[k]=Math.min(bb[k],tb[t*6+k]);bb[3+k]=Math.max(bb[3+k],tb[t*6+3+k]);}}
+    BN.push(bb);
+    if(e-s<=4){BS[id]=s;BC[id]=e-s;return id;}
+    const cb=[1e30,1e30,1e30,-1e30,-1e30,-1e30];for(let i=s;i<e;i++){const t=idx[i];for(let k=0;k<3;k++){cb[k]=Math.min(cb[k],cen[t*3+k]);cb[3+k]=Math.max(cb[3+k],cen[t*3+k]);}}
+    const area=q=>{const x=q[3]-q[0],y=q[4]-q[1],z=q[5]-q[2];return x<0?0:2*(x*y+y*z+z*x);};
+    let best=1e300,bax=-1,bpos=0;const NBIN=12;
+    for(let ax=0;ax<3;ax++){const lo=cb[ax],ext=cb[3+ax]-lo;if(ext<1e-9)continue;
+      const cnt=new Array(NBIN).fill(0),bx=[];for(let i=0;i<NBIN;i++)bx.push([1e30,1e30,1e30,-1e30,-1e30,-1e30]);
+      for(let i=s;i<e;i++){const t=idx[i];let b=Math.floor((cen[t*3+ax]-lo)/ext*NBIN);if(b>=NBIN)b=NBIN-1;cnt[b]++;const q=bx[b];for(let k=0;k<3;k++){q[k]=Math.min(q[k],tb[t*6+k]);q[3+k]=Math.max(q[3+k],tb[t*6+3+k]);}}
+      for(let sp=1;sp<NBIN;sp++){const L=[1e30,1e30,1e30,-1e30,-1e30,-1e30],Rb=[1e30,1e30,1e30,-1e30,-1e30,-1e30];let nl=0,nr=0;
+        for(let i=0;i<NBIN;i++){const q=bx[i],D=i<sp?L:Rb;if(!cnt[i])continue;if(i<sp)nl+=cnt[i];else nr+=cnt[i];for(let k=0;k<3;k++){D[k]=Math.min(D[k],q[k]);D[3+k]=Math.max(D[3+k],q[3+k]);}}
+        if(!nl||!nr)continue;const c=area(L)*nl+area(Rb)*nr;if(c<best){best=c;bax=ax;bpos=lo+ext*sp/NBIN;}}}
+    let m=-1;
+    if(bax>=0){let i=s,j=e-1;while(i<=j){if(cen[idx[i]*3+bax]<bpos)i++;else{const q=idx[i];idx[i]=idx[j];idx[j]=q;j--;}}m=i;}
+    if(m<=s||m>=e){let ax=0;if(cb[4]-cb[1]>cb[3+ax]-cb[ax])ax=1;if(cb[5]-cb[2]>cb[3+ax]-cb[ax])ax=2;
+      if(cb[3+ax]-cb[ax]<1e-9){BS[id]=s;BC[id]=e-s;return id;}
+      const sub=Array.from(idx.subarray(s,e)).sort((a,b)=>cen[a*3+ax]-cen[b*3+ax]);for(let i=0;i<sub.length;i++)idx[s+i]=sub[i];m=(s+e)>>1;}
+    BL[id]=build(s,m);BR[id]=build(m,e);return id;}
+  build(0,N);
+  const NB=BL.length,BB=new Float64Array(NB*6);for(let i=0;i<NB;i++)for(let k=0;k<6;k++)BB[i*6+k]=BN[i][k];
+  const BLi=Int32Array.from(BL),BRi=Int32Array.from(BR),BSi=Int32Array.from(BS),BCi=Int32Array.from(BC);
+  const stack=new Int32Array(128);let hT=0,hI=-1;
+  function hit(ox,oy,oz,dx,dy,dz,tmax){
+    hT=tmax;hI=-1;const ix=1/dx,iy=1/dy,iz=1/dz;let sp=0;stack[sp++]=0;
+    while(sp>0){const n=stack[--sp],b=n*6;
+      let t0=(BB[b]-ox)*ix,t1=(BB[b+3]-ox)*ix;if(t0>t1){const q=t0;t0=t1;t1=q;}
+      let u0=(BB[b+1]-oy)*iy,u1=(BB[b+4]-oy)*iy;if(u0>u1){const q=u0;u0=u1;u1=q;}if(u0>t0)t0=u0;if(u1<t1)t1=u1;
+      let w0=(BB[b+2]-oz)*iz,w1=(BB[b+5]-oz)*iz;if(w0>w1){const q=w0;w0=w1;w1=q;}if(w0>t0)t0=w0;if(w1<t1)t1=w1;
+      if(t0>t1||t1<0||t0>hT)continue;
+      const c=BCi[n];
+      if(c>0){const s=BSi[n];for(let j=s;j<s+c;j++){const t=idx[j],o=t*3;
+          const e1x=E1[o],e1y=E1[o+1],e1z=E1[o+2],e2x=E2[o],e2y=E2[o+1],e2z=E2[o+2];
+          const px=dy*e2z-dz*e2y,py=dz*e2x-dx*e2z,pz=dx*e2y-dy*e2x;const det=e1x*px+e1y*py+e1z*pz;if(det>-1e-12&&det<1e-12)continue;const inv=1/det;
+          const sx=ox-V0[o],sy=oy-V0[o+1],sz=oz-V0[o+2];const u=(sx*px+sy*py+sz*pz)*inv;if(u<0||u>1)continue;
+          const qx=sy*e1z-sz*e1y,qy=sz*e1x-sx*e1z,qz=sx*e1y-sy*e1x;const v=(dx*qx+dy*qy+dz*qz)*inv;if(v<0||u+v>1)continue;
+          const tt=(e2x*qx+e2y*qy+e2z*qz)*inv;if(tt>.004&&tt<hT){hT=tt;hI=t;}}}
+      else{stack[sp++]=BLi[n];stack[sp++]=BRi[n];}}
+    return hI;}
+  // 광원 목록
+  const LT=[],LA=[],LAR=[],LW=[];let LSUM=0;for(let i=0;i<N;i++){const E=MAT[MID[i]].e;if(E){const o=i*3;const cx=E1[o+1]*E2[o+2]-E1[o+2]*E2[o+1],cy=E1[o+2]*E2[o]-E1[o]*E2[o+2],cz=E1[o]*E2[o+1]-E1[o+1]*E2[o];const a=.5*Math.hypot(cx,cy,cz);
+    if(a>0){const w=a*(E[0]+E[1]+E[2])*(MAT[MID[i]].lamp?4:1);LSUM+=w;LT.push(i);LA.push(LSUM);LAR.push(a);LW.push(w);}}}
+  const LTi=Int32Array.from(LT),LAc=Float64Array.from(LA),LARi=Float64Array.from(LAR),LWi=Float64Array.from(LW),NL=LT.length;
+  let seed=1;const rnd=()=>{seed^=seed<<13;seed^=seed>>>17;seed^=seed<<5;return(seed>>>0)/4294967296;};
+  const h2=(a,b)=>{let n=(Math.imul(a|0,374761393)+Math.imul(b|0,668265263))|0;n=Math.imul(n^(n>>>13),1274126177);return((n^(n>>>16))>>>0)/4294967296;};
+  const alb=[0,0,0];
+  function albedo(m,x,y,z){const M=MAT[m],a=M.a;alb[0]=a[0];alb[1]=a[1];alb[2]=a[2];
+    if(M.kind===1){
+      if(ST==="before"){const s=450,i=Math.floor(x/s),j=Math.floor(z/s),fx=x-i*s,fz=z-j*s;let f=.9+.18*h2(i,j)+.05*Math.sin(x*.013+z*.007);if(fx<4||fz<4)f*=.55;alb[0]*=f;alb[1]*=f;alb[2]*=f;}
+      else{const w=ST==="minimal"?320:ST==="hanok"?150:190,PL=ST==="hanok"?900:ST==="minimal"?2400:1500,i=Math.floor((x+4000)/w),off=h2(i,7)*PL,j=Math.floor((z+off)/PL),fx=x+4000-i*w,fz=z+off-j*PL;
+        let f=.92+.12*h2(i,j);f*=1+.05*Math.sin(x*.16+h2(j,i)*40+Math.sin(z*.0035+i)*2.5)+.025*Math.sin(x*.6+z*.01+i*7);if(fx<2.5)f*=.6;else if(fz<2)f*=.78;
+        alb[0]*=f;alb[1]*=f*.985;alb[2]*=f*.96;}}
+    else if(M.kind===2){const f=.985+.015*Math.sin(x*.05+y*.031)*Math.sin(z*.043+y*.02);alb[0]*=f;alb[1]*=f;alb[2]*=f;}
+    for(let k=0;k<3;k++)alb[k]=Math.min(alb[k],.86);
+    return alb;}
+  const SKY=[.3,.32,.36];
+  function trans(ox,oy,oz,dx,dy,dz,dist){let tr=1;for(let k=0;k<6;k++){const t=hit(ox,oy,oz,dx,dy,dz,dist);if(t<0)return tr;const M=MAT[MID[t]];if(M.e||M.al>=.97)return 0;tr*=(1-M.al)+M.al*.25;if(tr<.01)return 0;ox+=dx*(hT+.05);oy+=dy*(hT+.05);oz+=dz*(hT+.05);dist-=hT+.05;if(dist<=.1)return tr;}return tr;}
+  const out={c:[0,0,0],a:[0,0,0],n:[0,0,0],d:0,e:0};
+  function sample(px,py){
+    const sx=(px+rnd())*sc.s,sy=(py+rnd())*sc.s-G.ty;let dx=(sx-G.CX)/G.K,dy=-(sy-G.CY)/G.K,dz=1;let l=Math.hypot(dx,dy,dz);dx/=l;dy/=l;dz/=l;
+    let ox=G.XC,oy=G.EYE,oz=0,Tr=1,Tg=1,Tb=1,Lr=0,Lg=0,Lb=0,spec=true,first=true;
+    out.e=0;out.d=0;out.a[0]=out.a[1]=out.a[2]=0;out.n[0]=out.n[1]=out.n[2]=0;
+    for(let depth=0,skip=0;depth<3;){
+      const t=hit(ox,oy,oz,dx,dy,dz,1e9);
+      if(t<0){Lr+=Tr*SKY[0];Lg+=Tg*SKY[1];Lb+=Tb*SKY[2];break;}
+      const m=MID[t],M=MAT[m],hx=ox+dx*hT,hy=oy+dy*hT,hz=oz+dz*hT;
+      if(M.al<.5&&!M.e&&skip<8&&rnd()>M.al){ox=hx+dx*.05;oy=hy+dy*.05;oz=hz+dz*.05;skip++;continue;}
+      let nx=NN[t*3],ny=NN[t*3+1],nz=NN[t*3+2];if(nx*dx+ny*dy+nz*dz>0){nx=-nx;ny=-ny;nz=-nz;}
+      if(M.e){if(spec){const c=first?1e9:2.5;Lr+=Tr*Math.min(M.e[0],c);Lg+=Tg*Math.min(M.e[1],c);Lb+=Tb*Math.min(M.e[2],c);}if(first){out.e=1;out.a[0]=out.a[1]=out.a[2]=1;out.n[0]=nx;out.n[1]=ny;out.n[2]=nz;out.d=hT;}break;}
+      const A=albedo(m,hx,hy,hz);
+      if(first){out.a[0]=A[0];out.a[1]=A[1];out.a[2]=A[2];out.n[0]=nx;out.n[1]=ny;out.n[2]=nz;out.d=hT;first=false;}
+      ox=hx+nx*.05;oy=hy+ny*.05;oz=hz+nz*.05;
+      if(M.gl>0&&rnd()<M.gl){const dn=dx*nx+dy*ny+dz*nz;let rx=dx-2*dn*nx,ry=dy-2*dn*ny,rz=dz-2*dn*nz;
+        for(let k=0;k<4;k++){const a=rnd()*2-1,b=rnd()*2-1,c=rnd()*2-1;const qx=rx+a*M.ro,qy=ry+b*M.ro,qz=rz+c*M.ro;if(qx*nx+qy*ny+qz*nz>0){rx=qx;ry=qy;rz=qz;break;}}
+        l=Math.hypot(rx,ry,rz);dx=rx/l;dy=ry/l;dz=rz/l;spec=true;depth++;continue;}
+      // 광원 직접 샘플링
+      if(NL>0){const r=rnd()*LSUM;let lo=0,hi=NL-1;while(lo<hi){const md=(lo+hi)>>1;if(LAc[md]<r)lo=md+1;else hi=md;}
+        const li=LTi[lo],o=li*3,lsc=LARi[lo]*LSUM/LWi[lo];let a=rnd(),b=rnd();if(a+b>1){a=1-a;b=1-b;}
+        const lx=V0[o]+E1[o]*a+E2[o]*b,ly=V0[o+1]+E1[o+1]*a+E2[o+1]*b,lz=V0[o+2]+E1[o+2]*a+E2[o+2]*b;
+        let vx=lx-ox,vy=ly-oy,vz=lz-oz;const d2=vx*vx+vy*vy+vz*vz,dd=Math.sqrt(d2);vx/=dd;vy/=dd;vz/=dd;
+        let cs=vx*nx+vy*ny+vz*nz;const cl=Math.abs(vx*NN[o]+vy*NN[o+1]+vz*NN[o+2]);let px_=ox,py_=oy,pz_=oz;
+        if(cs<0&&M.al<.97){cs=-cs*(1-M.al)*.9;px_=hx-nx*.05;py_=hy-ny*.05;pz_=hz-nz*.05;}
+        if(cs>0&&cl>1e-4&&d2>25){const vis=trans(px_,py_,pz_,lx-px_>0?vx:vx,vy,vz,dd-.2);if(vis>0){const E=MAT[MID[li]].e,f=vis*cs*cl*lsc/(d2*Math.PI);
+          Lr+=Tr*A[0]*E[0]*f;Lg+=Tg*A[1]*E[1]*f;Lb+=Tb*A[2]*E[2]*f;}}}
+      Tr*=A[0];Tg*=A[1];Tb*=A[2];
+      if(depth>=1){const q=Math.max(Tr,Tg,Tb);if(q<.15){if(rnd()>q/.15)break;Tr/=q/.15;Tg/=q/.15;Tb/=q/.15;}}
+      // 확산 반사 방향
+      const r1=rnd()*Math.PI*2,r2=rnd(),rs=Math.sqrt(r2);let ux,uy,uz;if(Math.abs(nx)>.5){ux=-ny;uy=nx;uz=0;}else{ux=0;uy=-nz;uz=ny;}l=Math.hypot(ux,uy,uz);ux/=l;uy/=l;uz/=l;
+      const wx=ny*uz-nz*uy,wy=nz*ux-nx*uz,wz=nx*uy-ny*ux,cu=Math.cos(r1)*rs,cw=Math.sin(r1)*rs,cn=Math.sqrt(1-r2);
+      dx=ux*cu+wx*cw+nx*cn;dy=uy*cu+wy*cw+ny*cn;dz=uz*cu+wz*cw+nz*cn;spec=false;depth++;}
+    if(!(Lr+Lg+Lb<1e30)){Lr=Lg=Lb=0;}const mx=Math.max(Lr,Lg,Lb),cap=out.e?1e9:6;if(mx>cap){Lr*=cap/mx;Lg*=cap/mx;Lb*=cap/mx;}
+    out.c[0]=Lr;out.c[1]=Lg;out.c[2]=Lb;return out;}
+  // 한 번의 패스: 맡은 행(rows)의 픽셀마다 1샘플
+  function pass(rows,k,buf){
+    let j=0;for(const y of rows){for(let x=0;x<W;x++,j++){seed=(Math.imul(y*W+x+1,9781)^Math.imul(k+1,6271)^0x5bd1e995)|1;rnd();rnd();
+      const s=sample(x,y),o=j*3;buf.c[o]=s.c[0];buf.c[o+1]=s.c[1];buf.c[o+2]=s.c[2];
+      if(buf.a){buf.a[o]=s.a[0];buf.a[o+1]=s.a[1];buf.a[o+2]=s.a[2];buf.n[o]=s.n[0];buf.n[o+1]=s.n[1];buf.n[o+2]=s.n[2];buf.d[j]=s.d;buf.e[j]=s.e;}}}}
+  return{pass,N};
+};}
+const PT_WORKER_SRC="const makeTracer=("+PT_FACTORY.toString()+")();let tr=null,rows=null;\n"+
+ "onmessage=e=>{const m=e.data;if(m.cmd==='init'){tr=makeTracer(m.scene);rows=m.rows;return;}\n"+
+ "if(m.cmd==='pass'){const n=rows.length*m.W,f=m.feat;const buf={c:new Float32Array(n*3)};if(f){buf.a=new Float32Array(n*3);buf.n=new Float32Array(n*3);buf.d=new Float32Array(n);buf.e=new Float32Array(n);}\n"+
+ "tr.pass(rows,m.k,buf);const tf=[buf.c.buffer];if(f)tf.push(buf.a.buffer,buf.n.buffer,buf.d.buffer,buf.e.buffer);postMessage({k:m.k,id:m.id,buf},tf);}};";
+
+/* 노이즈 제거: 법선·깊이·재질색을 기준으로 가장자리를 지키며 부드럽게 */
+function denoise(J){
+  const{W,H,alb,nor,dep,emi}=J,n=W*H;const col=J.col.slice();for(let i=0;i<col.length;i++)if(!(col[i]<1e30)||!(alb[i]>=0))col[i]=0;for(let i=0;i<alb.length;i++)if(!(alb[i]>=0))alb[i]=.5;
+  for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++){const p=y*W+x;if(emi[p]>.5)continue;const lp=col[p*3]+col[p*3+1]+col[p*3+2];let sm=0,c=0;
+    for(let j=-1;j<=1;j++)for(let i=-1;i<=1;i++){if(!i&&!j)continue;const q=p+j*W+i;if(emi[q]>.5)continue;sm+=col[q*3]+col[q*3+1]+col[q*3+2];c++;}
+    if(c&&lp>3*sm/c+.05){const f=(sm/c)/lp;col[p*3]*=f;col[p*3+1]*=f;col[p*3+2]*=f;}}let L=new Float32Array(n*3),Tm=new Float32Array(n*3);
+  for(let i=0;i<n;i++)for(let k=0;k<3;k++)L[i*3+k]=col[i*3+k]/Math.max(alb[i*3+k],.03);
+  const K=[1/16,1/4,3/8,1/4,1/16];
+  for(let it=0;it<5;it++){const st=1<<it,sig=.55/Math.sqrt(1+it*1.5);
+    for(let y=0;y<H;y++)for(let x=0;x<W;x++){const p=y*W+x;if(emi[p]>.5){Tm[p*3]=L[p*3];Tm[p*3+1]=L[p*3+1];Tm[p*3+2]=L[p*3+2];continue;}
+      const pn=p*3,dp=dep[p],lp=.3*L[pn]+.6*L[pn+1]+.1*L[pn+2];let sr=0,sg=0,sb=0,sw=0;
+      for(let j=-2;j<=2;j++){const yy=y+j*st;if(yy<0||yy>=H)continue;for(let i=-2;i<=2;i++){const xx=x+i*st;if(xx<0||xx>=W)continue;const q=yy*W+xx;if(emi[q]>.5)continue;const qn=q*3;
+        const dn=nor[pn]*nor[qn]+nor[pn+1]*nor[qn+1]+nor[pn+2]*nor[qn+2];if(dn<.7)continue;
+        const wd=Math.abs(dp-dep[q])/(dp*.02*Math.max(1,Math.abs(i)+Math.abs(j))+1);
+        const lq=.3*L[qn]+.6*L[qn+1]+.1*L[qn+2],wl=Math.abs(lp-lq)/(sig*(lp+lq+.02));
+        const w=K[i+2]*K[j+2]*Math.pow(dn,16)*Math.exp(-wd-wl*wl);sr+=L[qn]*w;sg+=L[qn+1]*w;sb+=L[qn+2]*w;sw+=w;}}
+      if(sw>0){Tm[pn]=sr/sw;Tm[pn+1]=sg/sw;Tm[pn+2]=sb/sw;}else{Tm[pn]=L[pn];Tm[pn+1]=L[pn+1];Tm[pn+2]=L[pn+2];}}
+    const q=L;L=Tm;Tm=q;}
+  const o=new Float32Array(n*3);for(let i=0;i<n;i++)for(let k=0;k<3;k++)o[i*3+k]=emi[i]>.5?col[i*3+k]:L[i*3+k]*Math.max(alb[i*3+k],.03);return o;
+}
+function toneMap(J,img,ctx){
+  const{W,H,emi}=J,n=W*H,lum=[];for(let i=0;i<n;i+=7)if(emi[i]<.5)lum.push(.2126*img[i*3]+.7152*img[i*3+1]+.0722*img[i*3+2]);
+  lum.sort((a,b)=>a-b);const q=f=>lum.length?Math.max(lum[Math.floor(lum.length*f)],1e-5):1,ex=Math.min(.42/q(.5),1.05/q(.96));
+  let ar=0,ag=0,ab=0,cn=0;for(let i=0;i<n;i+=5)if(emi[i]<.5){ar+=img[i*3];ag+=img[i*3+1];ab+=img[i*3+2];cn++;}
+  const am=(ar+ag+ab)/3,wb=[Math.pow(am/Math.max(ar,1e-6),.55),Math.pow(am/Math.max(ag,1e-6),.55),Math.pow(am/Math.max(ab,1e-6),.55)];
+  const id=ctx.createImageData(W,H),d=id.data;
+  const aces=x=>{x*=ex*.6;return Math.min(1,Math.max(0,(x*(2.51*x+.03))/(x*(2.43*x+.59)+.14)));};
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){const i=y*W+x;const vx=(x-W/2)/(W*.75),vy=(y-H/2)/(H*.9),vg=1-.22*(vx*vx+vy*vy);
+    for(let k=0;k<3;k++){const v=aces(img[i*3+k]*vg*(emi[i]>.5?1:wb[k]));d[i*4+k]=Math.round(255*Math.pow(v,1/2.2)+(Math.random()-.5));}d[i*4+3]=255;}
+  ctx.putImageData(id,0,0);
+}
+let RJ=null;const REAL_CACHE={};const REAL_SPP=16,RW=840,RH=560;
+function stopReal(){if(RJ){RJ.dead=true;(RJ.ws||[]).forEach(w=>{try{w.terminate();}catch(e){}});RJ=null;}}
+function realKey(){const R=S.result;if(!R)return"";return[S.source,R.style,R.scenario,R.analysis?JSON.stringify(R.analysis).length+":"+(R.analysis.summary_ko||""):"",S.img?S.img.src:""].join("|");}
+function canReal(){const R=S.result;return!!(R&&!R.img&&S.source!=="upload"&&!isEx());}
+function startReal(){
+  stopReal();const R=S.result;if(!canReal()||!$("realOn").checked){refresh();return;}
+  const key=realKey();if(REAL_CACHE[key]){ca.putImageData(REAL_CACHE[key],0,0);S.real={done:true,k:REAL_SPP};refresh();return;}
+  const scene=sceneFor(R.style);
+  if(!scene){S.real=null;refresh();return;}
+  S.real={done:false,k:0};refresh();
+  RJ=runReal(scene,key,FRAME,ca,(k,fin)=>{S.real={done:fin,k};refresh();});
+}
+function sceneFor(style){const R=S.result;try{return S.source==="upload"?captureScene("photo",R.analysis,style,R.scenario):captureScene("demo",S.source,style,R.scenario);}catch(e){return null;}}
+function runReal(scene,key,frame,tc,onState){
+  const W=RW,H=RH,n=W*H,CW=tc.canvas.width,CH=tc.canvas.height;
+  const J={W,H,col:new Float32Array(n*3),alb:new Float32Array(n*3),nor:new Float32Array(n*3),dep:new Float32Array(n),emi:new Float32Array(n),k:0,dead:false,key,frame,ws:[]};
+  J.done=new Promise(r=>{J.resolve=r;});
+  const nw=Math.max(1,Math.min(8,(navigator.hardwareConcurrency||4)-1));
+  const rowsOf=w=>{const r=[];for(let y=w;y<H;y+=nw)r.push(y);return r;};
+  const FEAT=REAL_SPP;
+  const merge=(rows,m)=>{const f=m.k<FEAT;rows.forEach((y,j)=>{for(let x=0;x<W;x++){const p=y*W+x,q=j*W+x;for(let c=0;c<3;c++){J.col[p*3+c]+=m.buf.c[q*3+c];if(f){J.alb[p*3+c]+=m.buf.a[q*3+c];J.nor[p*3+c]+=m.buf.n[q*3+c];}}if(f){J.dep[p]+=m.buf.d[q];J.emi[p]+=m.buf.e[q];}}});};
+  const show=final=>{if(J.dead)return;const k=J.k,img=new Float32Array(n*3);
+    const fk=Math.min(k,FEAT),nr=new Float32Array(n*3);for(let i=0;i<n;i++){const x=J.nor[i*3],y=J.nor[i*3+1],z=J.nor[i*3+2],l=Math.hypot(x,y,z)||1;nr[i*3]=x/l;nr[i*3+1]=y/l;nr[i*3+2]=z/l;}
+    const F={W,H,emi:J.emi.map(v=>v/fk),alb:J.alb.map(v=>v/fk),dep:J.dep.map(v=>v/fk),nor:nr,col:null};
+    for(let i=0;i<n*3;i++)img[i]=J.col[i]/k;F.col=img;
+    const fin=(final||k===4)?denoise(F):img;const oc=document.createElement("canvas");oc.width=W;oc.height=H;toneMap(F,fin,oc.getContext("2d"));
+    tc.imageSmoothingEnabled=true;tc.imageSmoothingQuality="high";tc.drawImage(oc,0,0,CW,CH);if(J.frame){const fs=FRAME;FRAME=J.frame;tc.save();tc.scale(CW/1200,CH/800);maskFrame(tc);tc.restore();FRAME=fs;}
+    if(final){if(CW===1200)REAL_CACHE[J.key]=tc.getImageData(0,0,1200,800);J.resolve(true);}onState(k,!!final);};
+  const done=new Array(REAL_SPP).fill(0);
+  const tick=()=>{if(J.k===1||J.k===4||J.k===8||J.k===12||J.k===REAL_SPP)show(J.k===REAL_SPP);};
+  const onPass=(rows,m)=>{if(J.dead)return;merge(rows,m);done[m.k]++;
+    while(J.k<REAL_SPP&&done[J.k]===J.nw){J.k++;tick();}};
+  try{const url=URL.createObjectURL(new Blob([PT_WORKER_SRC],{type:"text/javascript"}));
+    J.nw=nw;
+    for(let w=0;w<nw;w++){const wk=new Worker(url),rows=rowsOf(w);let k=0;
+      wk.onmessage=e=>{onPass(rows,e.data);k++;if(k<REAL_SPP&&!J.dead)wk.postMessage({cmd:"pass",k,W,feat:k<FEAT});};
+      wk.onerror=()=>{if(!J.fellBack){J.fellBack=true;J.ws.forEach(x=>x.terminate());runInPage();}};
+      wk.postMessage({cmd:"init",scene,rows});wk.postMessage({cmd:"pass",k:0,W,feat:true});J.ws.push(wk);}
+  }catch(e){runInPage();}
+  async function runInPage(){
+    J.nw=1;J.ws=[];done.fill(0);J.col.fill(0);J.alb.fill(0);J.nor.fill(0);J.dep.fill(0);J.emi.fill(0);J.k=0;
+    const tr=PT_FACTORY()(scene);
+    for(let k=0;k<REAL_SPP&&!J.dead;k++){const f=k<FEAT;
+      for(let y0=0;y0<H&&!J.dead;y0+=16){const rows=[];for(let y=y0;y<Math.min(H,y0+16);y++)rows.push(y);const m=rows.length*W;
+        const buf={c:new Float32Array(m*3)};if(f){buf.a=new Float32Array(m*3);buf.n=new Float32Array(m*3);buf.d=new Float32Array(m);buf.e=new Float32Array(m);}
+        tr.pass(rows,k,buf);merge(rows,{k,buf});await sleep(0);}
+      done[k]=1;J.k=k+1;tick();}
+  }
+  return J;
+}
+/* 4안 비교: 현재 + 북유럽·미니멀·한옥모던 */
+let QJ=null,QRUN=0;const QSTY=["nordic","minimal","hanok"];
+function stopQuad(){QRUN++;if(QJ){QJ.dead=true;(QJ.ws||[]).forEach(w=>{try{w.terminate();}catch(e){}});QJ=null;}}
+async function runQuad(){
+  const lbl=["현재 상태","북유럽풍","미니멀","한옥모던"];
+  const imgSet=isEx()?(()=>{const ex=curEx()||{};const o={};QSTY.forEach(st=>{o[st]=ex.afterImg&&ex.afterImg[st]||null;});return{ex,o};})():null;
+  if(isEx()||S.source==="upload"){
+    stopQuad();const q=i=>$("q"+i).getContext("2d");q(0).clearRect(0,0,1200,800);if(S.exBefore||S.img)coverDraw(q(0),isEx()?S.exBefore:S.img,true);$("qs0").textContent=isEx()?"사전 생성 예시":"내 사진";
+    for(let i=0;i<3;i++){const st=QSTY[i],c=q(i+1);let img=null;
+      if(isEx()){const ex=imgSet.ex;img=imgSet.o[st];if(!img&&ex.after&&ex.after[st]){try{img=await imgOnce(ex.after[st]);}catch(e){}}}
+      else{const ck=S.img?S.img.src+"|"+S.scenario:"";img=(APIC[ck]&&APIC[ck][st])||(GPTS[ck]&&GPTS[ck][st]);}
+      c.fillStyle="#1c2427";c.fillRect(0,0,1200,800);
+      const fromApi=!isEx()&&APIC[S.img?S.img.src+"|"+S.scenario:""]&&APIC[S.img.src+"|"+S.scenario][st]===img;
+      if(img){coverDraw(c,img,true);$("qs"+(i+1)).textContent=isEx()?"사전 생성 예시":fromApi?"AI 생성 · OpenAI":"AI 생성 · ChatGPT";}
+      else{c.fillStyle="#9aa5a8";c.font="600 40px sans-serif";c.textAlign="center";c.fillText(isEx()?"이 스타일 예시 없음":"아직 변환하지 않음",600,400);c.textAlign="start";$("qs"+(i+1)).textContent=isEx()?"없음":API.ready?"스타일을 고르고 [만들기]":"[변환 재료] → ChatGPT → [결과 올리기]";}}
+    $("qNote").textContent=isEx()?"사전 생성 예시 · 실시간 생성 아님":"이 사진으로 만든 스타일별 결과를 모았습니다. 비어 있는 칸은 아래 버튼으로 채울 수 있습니다.";
+    $("qSave").disabled=false;return;}
+  const R=S.result;if(!R||(R.img&&!R.aiSrc)||(S.source==="upload"&&!R.analysis)){$("qNote").textContent=S.source==="upload"?"먼저 [리모델링 이미지 만들기]로 사진 구조 분석을 끝낸 뒤 눌러 주세요.":"먼저 위에서 결과를 만들어 주세요.";return;}
+  stopQuad();const my=QRUN;
+  $("qNote").textContent=`${SCENARIOS[R.scenario].name} · 같은 벽·창·문, 같은 시점에서 스타일만 바꾼 4안입니다.`;
+  const q=i=>$("q"+i).getContext("2d");q(0).drawImage($("cvBefore"),0,0);$("qs0").textContent=S.source==="upload"?"내 사진":"예시 공간";
+  QSTY.forEach((st,i)=>{const c=q(i+1);if(S.source==="upload")drawPhotoScene(c,R.analysis,st,R.scenario);else drawScene(c,S.source,st,R.scenario);$("qs"+(i+1)).textContent="스케치";});
+  refresh();$("qSave").disabled=false;
+  if(!$("realOn").checked)return;
+  stopReal();
+  for(let i=0;i<3;i++){if(my!==QRUN)return;const st=QSTY[i],key=[S.source,st,R.scenario,R.analysis?JSON.stringify(R.analysis).length+":"+(R.analysis.summary_ko||""):"",S.img?S.img.src:""].join("|");
+    const c=q(i+1),lab=$("qs"+(i+1));
+    if(REAL_CACHE[key]){c.putImageData(REAL_CACHE[key],0,0);lab.textContent="실사 렌더";continue;}
+    const sc=sceneFor(st);if(!sc)continue;
+    lab.textContent="실사 계산 중 0%";QJ=runReal(sc,key,FRAME,c,(k,fin)=>{lab.textContent=fin?"실사 렌더":"실사 계산 중 "+Math.round(k/REAL_SPP*100)+"%";});
+    await QJ.done;}
+  QJ=null;if(my===QRUN)startReal();
+}
+function saveBlob(b,fname){
+  (async()=>{try{if(window.claude&&typeof window.claude.use==="function"){const dl=await window.claude.use("downloads");if(dl){await dl.save({filename:fname,data:b});return;}}}catch(e){if(e&&e.code)return;}
+    const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download=fname;document.body.append(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1000);})();
+}
+function saveQuad(){
+  const R=S.result||{scenario:S.scenario};const w=1200,h=800,g=30,top=70,c=document.createElement("canvas");c.width=w*2+g;c.height=(h+56)*2+top+40;
+  const x=c.getContext("2d");x.fillStyle="#fafbf8";x.fillRect(0,0,c.width,c.height);x.fillStyle="#1c2427";x.font="600 30px 'IBM Plex Sans KR',sans-serif";
+  x.fillText("4안 비교 · "+SCENARIOS[R.scenario].name+" · 같은 벽·창·문, 같은 시점",0,44);
+  ["현재 상태","북유럽풍","미니멀","한옥모던"].forEach((t,i)=>{const ox=(i%2)*(w+g),oy=top+Math.floor(i/2)*(h+56);x.drawImage($("q"+i),ox,oy);x.font="600 26px 'IBM Plex Sans KR',sans-serif";x.fillStyle="#1c2427";x.fillText(t+(i?" · "+$("qs"+i).textContent:""),ox,oy+h+36);});
+  x.font="22px 'IBM Plex Sans KR',sans-serif";x.fillStyle="#5b676a";const anyAI=[1,2,3].some(i=>$("qs"+i).textContent.startsWith("AI"));x.fillText(isEx()?"사전 생성 예시 (ChatGPT로 미리 만든 AI 이미지) · 실시간 생성 결과 아님 · 참고용":(API.ready&&S.source==="upload")?"AI 생성 이미지 (OpenAI 이미지 편집, 안전 검사 통과분만 표시) · 참고용, 실제 시공은 전문가 검토 필요":(anyAI?"AI 생성 이미지 포함 (Gemini로 실사화, 배치는 3D 모델 기준) · ":"")+(R.engine==="claude"?"AI 구조 분석(Claude) 기반 3D · 참고용, 실제 시공은 전문가 검토 필요":"예시 공간 3D · 광선 추적 렌더 · 참고용"),0,c.height-14);
+  c.toBlob(b=>saveBlob(b,"리모델링_4안비교_"+R.scenario+".png"),"image/png");
+}
+
+/* ---------- 상태와 화면 ---------- */
+const S={source:"A",img:null,scenario:"old",style:"nordic",result:null};
+const $=id=>document.getElementById(id);
+const cb=$("cvBefore").getContext("2d"),ca=$("cvAfter").getContext("2d",{willReadFrequently:true});
+
+function buildSamples(){
+  const box_=$("samples");
+  Object.keys(SAMPLES).forEach(k=>{
+    const b=document.createElement("button");b.type="button";b.className="sample";b.dataset.k=k;b.id="sample-"+k;
+    const c=document.createElement("canvas");c.width=240;c.height=160;const x=c.getContext("2d");x.setTransform(.2,0,0,.2,0,0);drawScene(x,k,"before","old");
+    const s=document.createElement("span");s.textContent=SAMPLES[k].name+" (예시)";
+    b.append(c,s);b.addEventListener("click",()=>{S.source=k;S.scenario=k==="B"?"single":"old";syncRadios();S.result=null;S.error="";run(true);});
+    box_.append(b);
+  });
+}
+function buildOpts(el,data,name){
+  Object.entries(data).forEach(([k,v])=>{
+    const l=document.createElement("label");l.className="opt";
+    const i=document.createElement("input");i.type="radio";i.name=name;i.value=k;i.id=name+"-"+k;
+    i.addEventListener("change",()=>{S[name]=k;if(isEx())showExample();else refresh();});
+    const c=document.createElement("span");c.className="card";
+    const sw=v.sw?`<span class="swatches">${v.sw.map(x=>`<i style="background:${x}"></i>`).join("")}</span>`:"";
+    c.innerHTML=`<span class="dot"></span><span><b>${v.name}</b><small>${v.desc}</small>${sw}</span>`;
+    l.append(i,c);el.append(l);
+  });
+}
+function syncRadios(){$("scenario-"+S.scenario).checked=true;$("style-"+S.style).checked=true;}
+
+function promptText(){return buildPrompt(S.scenario,S.style);}
+function refresh(){
+  document.querySelectorAll(".sample").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.k===S.source)));
+  $("drop").classList.toggle("on",S.source==="upload");
+  // 기준표
+  const st=STYLES[S.style],sc=SCENARIOS[S.scenario];
+  const RR=S.result,an=RR&&RR.analysis&&RR.scenario===S.scenario&&RR.style===S.style?RR.analysis:null,pr=an&&an.proposal_ko;
+  const rows=pr?[["벽 마감",pr.wall||st.wall],["바닥 마감",pr.floor||st.floor],["조명",pr.light||st.light],["창호",(pr.window||st.window)+" (위치·크기 유지)"],["가구",pr.furniture||st.furn],[sc.row[0],pr.extra||sc.row[1]]]
+    :[["벽 마감",st.wall],["바닥 마감",st.floor],["조명",st.light],["창호",st.window+" (위치·크기 유지)"],["가구",st.furn],sc.row];
+  $("specTitle").textContent=pr?"AI가 이 사진에 맞춰 제안한 변환 기준":"적용된 변환 기준";
+  const note=$("aiNote");note.hidden=!an;
+  if(an){note.innerHTML="";const t=document.createElement("div");t.textContent=an.summary_ko||"";note.append(t);
+    const cs=Array.isArray(an.condition_ko)?an.condition_ko.slice(0,4):[];
+    if(cs.length){const w=document.createElement("div");w.className="conds";const l=document.createElement("b");l.textContent="현재 상태 진단";l.style.fontSize="12.5px";w.append(l);cs.forEach(c=>{const x=document.createElement("span");x.textContent=c;w.append(x);});note.append(w);}}
+  if(LAST_PLAN&&RR&&!RR.img&&LAST_PLAN.scenario===RR.scenario&&RR.scenario===S.scenario&&RR.style===S.style)rows.push(["가구 재배치",LAST_PLAN.notes.join("\n")]);
+  const tb=$("spec");tb.innerHTML="";rows.forEach(r=>{const tr=document.createElement("tr"),th=document.createElement("th"),td=document.createElement("td");th.scope="row";th.textContent=r[0];td.textContent=r[1];tr.append(th,td);tb.append(tr);});
+  $("prompt").textContent=promptText();
+  // 상태
+  const R=S.result,stale=R&&(R.scenario!==S.scenario||R.style!==S.style);
+  const parts=[];
+  if(R)parts.push(`<span>현재 결과</span><span class="chip">${SCENARIOS[R.scenario].name}</span><span class="chip">${STYLES[R.style].name}</span>`);
+  else parts.push(`<span>아직 만든 결과가 없습니다</span>`);
+  if(stale)parts.push(`<span class="chip stale">선택이 바뀌었어요 · 다시 만들기를 눌러 주세요</span>`);
+  if(S.error)parts.push(`<span class="chip err"></span>`+(S.canRetry?`<button class="retry" id="retryBtn" type="button">다시 시도</button>`:""));
+  if(R&&!R.ai&&!R.engine&&S.source==="upload"&&!API.ready&&!SAMPLE)parts.push(`<span class="chip stale">지금 화면은 AI 서버에 연결되지 않아 색감만 바꿔 보여줍니다. 실제 리모델링 이미지는 Vercel에 올린 주소에서 만들어집니다.</span>`);
+  $("status").innerHTML=parts.join("");
+  if(S.error)$("status").querySelector(".chip.err").textContent=S.error;
+  if($("retryBtn"))$("retryBtn").addEventListener("click",()=>run(false));
+  const src=S.source==="upload"?{dwg:"U-01",name:"내 사진",dims:"치수 정보 없음"}:isEx()?{dwg:"E-01",name:(curEx()||{}).title||"사전 생성 예시",dims:"사전 생성 예시"}:SAMPLES[S.source];
+  $("titleblock").innerHTML=`<div>DWG. ${src.dwg}</div><div>${src.name}${S.source==="upload"||isEx()?"":" (예시)"}</div><div>${src.dims}</div><div>N.T.S.</div>`;
+  const badge=$("badge");
+  const RL=S.real;
+  badge.textContent=!R&&(isEx()||(API.ready&&S.source==="upload"))?"결과 없음":S.source==="upload"&&!API.ready&&(!R||!R.img)?"ChatGPT 변환 대기":R&&R.preset?"사전 생성 예시 · "+(R.exSrc||"ChatGPT")+"로 미리 만든 이미지 · 실시간 생성 아님":R&&R.ai?(R.aiSrc==="ChatGPT"?"AI 생성 이미지 · ChatGPT 앱으로 변환"+(R.checked?" · 안전 점검 통과":""):R.aiSrc==="Gemini"?"AI 실사화 이미지 · Gemini · 배치는 3D 모델 기준":R.aiSrc?"AI 생성 이미지 · "+R.aiSrc+" · 안전 검사 통과"+(R.secs?" · "+R.secs+"초":""):"AI 생성 이미지"):RL&&RL.done?(R.engine==="claude"?"실사 렌더 · AI 구조 분석 기반":"실사 렌더 · 예시 공간"):RL?"실사 렌더 중 "+Math.round(RL.k/REAL_SPP*100)+"% · 점점 선명해져요":R&&R.engine==="claude"?"AI 구조 분석 렌더 · Claude":S.source==="upload"?"색감 미리보기 · AI 변환 아님":"데모 렌더 · AI 변환 아님";
+  $("realWrap").hidden=!canReal();
+  badge.classList.toggle("ai",!!(R&&(R.ai||R.engine)));
+  const gOk=!!(R&&R.analysis&&S.source==="upload");$("guideWrap").hidden=!gOk;$("cvGuide").hidden=!(gOk&&$("guideOn").checked);
+  $("save").disabled=!R;
+}
+function drawBefore(){
+  if(isEx()&&S.exBefore)coverDraw(cb,S.exBefore,true);
+  else if(S.source==="upload"&&S.img)coverDraw(cb,S.img,true);else{FRAME=null;drawScene(cb,S.source,"before",S.scenario);}
+}
+function drawGuideLayer(){const g=$("cvGuide").getContext("2d");const R=S.result;drawGuide(g,R&&R.analysis&&S.source==="upload"?R.analysis:null);}
+function drawAfter(){
+  stopReal();stopQuad();S.real=null;
+  drawGuideLayer();
+  const R=S.result;$("empty").hidden=!!R;
+  if(!R){ca.clearRect(0,0,1200,800);ca.drawImage($("cvBefore"),0,0);ca.fillStyle="rgba(18,24,25,.62)";ca.fillRect(0,0,1200,800);return;}
+  if(R.img){if((S.source==="upload"||isEx())&&FRAME){const[fx,fy,fw,fh]=FRAME,i=R.img,r=Math.max(fw/i.width,fh/i.height);ca.fillStyle="#1c2427";ca.fillRect(0,0,1200,800);ca.save();ca.beginPath();ca.rect(fx,fy,fw,fh);ca.clip();ca.drawImage(i,fx+(fw-i.width*r)/2,fy+(fh-i.height*r)/2,i.width*r,i.height*r);ca.restore();}
+    else coverDraw(ca,R.img,false);}
+  else if(S.source==="upload"&&!API.ready&&GPTS[gptKey()]&&GPTS[gptKey()][R.style]){const g=GPTS[gptKey()][R.style];Object.assign(R,{img:g,ai:true,aiSrc:"ChatGPT",checked:!!g._checked});return drawAfter();}
+  else if(S.source==="upload"&&!API.ready){ca.clearRect(0,0,1200,800);ca.drawImage($("cvBefore"),0,0);ca.fillStyle="rgba(18,24,25,.72)";ca.fillRect(0,0,1200,800);ca.fillStyle="#fff";ca.textAlign="center";ca.font="600 34px 'IBM Plex Sans KR',sans-serif";ca.fillText("ChatGPT 변환 결과를 기다리는 중",600,370);ca.font="24px 'IBM Plex Sans KR',sans-serif";ca.fillText("아래 ① 변환 재료 받기 → ② ChatGPT → ③ 결과 올리기",600,420);ca.textAlign="start";return;}
+  else if(R.analysis&&S.source==="upload")drawPhotoScene(ca,R.analysis,R.style,R.scenario);
+  else if(S.source==="upload"&&S.img){coverDraw(ca,S.img,true);grade(ca,ca,R.style);}
+  else drawScene(ca,S.source,R.style,R.scenario);
+  if(canReal()&&$("realOn").checked)setTimeout(startReal,30);
+}
+let busy=false;
+let API={ready:false,needsCode:false};
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+function loadImg(src){return new Promise((ok,no)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=()=>no(new Error("결과 이미지를 읽지 못했습니다."));i.src=src;});}
+function busyOn(){busy=true;$("go").disabled=true;$("busy").classList.add("on");}
+function busyOff(){$("busy").classList.remove("on");$("busyBar").style.width="0";busy=false;$("go").disabled=false;}
+function setBusy(t,p){$("busyText").textContent=t;$("busyBar").style.width=p+"%";}
+async function run(instant){
+  if(busy)return;
+  drawBefore();S.error="";
+  const sc=S.scenario,st=S.style;
+  if(instant){S.result={scenario:sc,style:st};drawAfter();refresh();return;}
+  busyOn();
+  if(isEx()){busyOff();showExample();return;}
+  if(API.ready&&S.source==="upload"){
+    if(!S.img){busyOff();S.error="먼저 방 사진을 올려 주세요.";S.canRetry=false;refresh();return;}
+    S.canRetry=false;const t0=Date.now();
+    const steps=[[0,"사진 안전 검사 중"],[4,"AI가 리모델링 이미지를 만드는 중 (벽·창·문·시점 유지)"],[60,"거의 다 됐어요 · 결과 안전 검사 준비 중"],[120,"평소보다 오래 걸리고 있어요 · 계속 기다리는 중"]];
+    const timer=setInterval(()=>{const sec=Math.round((Date.now()-t0)/1000),st=steps.filter(x=>sec>=x[0]).pop();setBusy(`${st[1]} · ${sec}초`,Math.min(92,8+sec*1.2));},500);
+    setBusy(steps[0][1],5);
+    try{
+      const prep=prepImage(S.img),code=($("code").value||"").trim();
+      const ac=new AbortController(),kill=setTimeout(()=>ac.abort(),310000);
+      let r,j;
+      try{r=await fetch("/api/remodel",{method:"POST",signal:ac.signal,headers:{"Content-Type":"application/json","x-access-code":code},body:JSON.stringify({image:prep.data,aspect:prep.aspect,scenario:sc,style:st})});j=await r.json().catch(()=>({}));}
+      finally{clearTimeout(kill);}
+      if(!r.ok){const e=new Error(j.error||"AI 변환에 실패했습니다.");e.code=j.code;e.retryable=j.retryable!==false&&j.code!=="bad_code"&&j.code!=="config"&&j.code!=="quota"&&j.code!=="input_blocked";throw e;}
+      const img=await loadImg(j.image);
+      S.result={scenario:sc,style:st,img,ai:true,aiSrc:"OpenAI "+(j.model||""),secs:Math.round((Date.now()-t0)/1000)};
+      const ck=S.img.src+"|"+sc;(APIC[ck]=APIC[ck]||{})[st]=img;
+      S.error="";
+    }catch(e){
+      S.result=null;
+      const aborted=e&&e.name==="AbortError";
+      S.error=aborted?"응답이 너무 오래 걸려 중단했습니다.":(e&&e.message?e.message:"AI 변환에 실패했습니다.");
+      if(e&&e.code==="output_blocked")S.error+=" (차단된 이미지는 받지도, 표시하지도 않았습니다)";
+      S.canRetry=aborted||!!(e&&e.retryable)||!(e&&e.code);
+    }finally{clearInterval(timer);}
+  }else if(SAMPLE){
+    const msgs=[["Claude가 사진을 보고 있어요",15],["벽·창·문 위치와 원근을 읽는 중",35],["가구 배치와 노후 상태를 진단하는 중",60],["리모델링 기준을 정리하는 중",80]];
+    let k=0;setBusy(msgs[0][0],msgs[0][1]);
+    const timer=setInterval(()=>{k=Math.min(k+1,msgs.length-1);setBusy(msgs[k][0],msgs[k][1]);},3500);
+    try{
+      const blob=await new Promise(r=>$("cvBefore").toBlob(r,"image/jpeg",.85));
+      const an=await askClaude(analysisPrompt(sc,st),blob);
+      if(!an||an.ok===false){S.result=null;S.error=(an&&an.reason_ko?an.reason_ko:"이 사진은 분석할 수 없습니다.")+" 사람이나 개인정보가 없는 실내 사진으로 다시 시도해 주세요.";}
+      else S.result={scenario:sc,style:st,analysis:an,engine:"claude"};
+    }catch(e){
+      S.result={scenario:sc,style:st};
+      const c=e&&e.code;
+      S.error=(c==="not_granted"?"AI 사용 권한이 허용되지 않았습니다.":c==="rate_limited"?"AI 요청이 많아 잠시 쉬어야 합니다. 1분 뒤 다시 눌러 주세요.":"AI 분석에 실패했습니다.")+" 대신 데모 결과를 보여드립니다.";
+    }finally{clearInterval(timer);}
+  }else{
+    const steps=["원본 구조 분석 중 (벽·창·문 위치 고정)","시나리오·스타일 지시문 조합 중","데모 결과 그리는 중","표시 적용 중"];
+    const fast=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    for(let i=0;i<steps.length;i++){setBusy(steps[i],(i+1)/steps.length*100);await sleep(fast?150:600);}
+    S.result={scenario:sc,style:st};
+  }
+  drawAfter();refresh();busyOff();
+}
+let SAMPLE=null;const APIC={};
+/* 원본 비율 그대로, 긴 변 1536px JPEG로 줄여서 서버로 (Vercel 4.5MB 한도 안쪽) */
+function prepImage(img){
+  const w=img.naturalWidth||img.width,h=img.naturalHeight||img.height,k=Math.min(1,1536/Math.max(w,h));
+  const c=document.createElement("canvas");c.width=Math.round(w*k);c.height=Math.round(h*k);c.getContext("2d").drawImage(img,0,0,c.width,c.height);
+  let q=.9,d=c.toDataURL("image/jpeg",q);while(d.length>4e6&&q>.5){q-=.1;d=c.toDataURL("image/jpeg",q);}
+  return{data:d,aspect:w/h};
+}
+/* 사전 생성 예시 */
+const EXS=Array.isArray(globalThis.EXAMPLES)?globalThis.EXAMPLES:[];const EXIMG={};
+function isEx(){return String(S.source).startsWith("ex:");}
+function curEx(){const id=String(S.source).slice(3);return id==="local"?S.exLocal:EXS.find(e=>e.id===id);}
+function imgOnce(src){return EXIMG[src]||(EXIMG[src]=loadImg(src));}
+async function showExample(){
+  const ex=curEx();if(!ex)return;stopReal();
+  try{S.exBefore=ex.beforeImg||await imgOnce(ex.before);}catch(e){S.error="예시 원본 이미지를 찾지 못했습니다: "+ex.before;S.canRetry=false;refresh();return;}
+  if(ex.scenario&&SCENARIOS[ex.scenario]){S.scenario=ex.scenario;}syncRadios();
+  const src=ex.after&&ex.after[S.style];let img=null;
+  try{img=ex.afterImg&&ex.afterImg[S.style]||(src?await imgOnce(src):null);}catch(e){img=null;}
+  S.error=img?"":`이 예시에는 '${STYLES[S.style].name}' 결과가 아직 없습니다.`;S.canRetry=false;
+  S.result=img?{scenario:S.scenario,style:S.style,img,ai:true,preset:true,exSrc:ex.source||"ChatGPT"}:null;
+  drawBefore();drawAfter();refresh();
+}
+function buildExamples(){
+  const box_=$("exList");
+  EXS.forEach(ex=>{const b=document.createElement("button");b.type="button";b.className="sample";b.dataset.k="ex:"+ex.id;
+    const c=document.createElement("canvas");c.width=240;c.height=160;imgOnce(ex.before).then(i=>{const x=c.getContext("2d");const r=Math.max(240/i.width,160/i.height);x.drawImage(i,(240-i.width*r)/2,(160-i.height*r)/2,i.width*r,i.height*r);}).catch(()=>{});
+    const sp=document.createElement("span");sp.textContent=ex.title+" (사전 생성)";b.append(c,sp);
+    b.addEventListener("click",()=>{S.source="ex:"+ex.id;S.result=null;S.error="";showExample();});box_.append(b);});
+  if(!EXS.length){const p=document.createElement("p");p.className="hint";p.textContent="아직 등록된 예시가 없습니다. ChatGPT로 만든 이미지를 받으면 여기에 추가됩니다.";box_.append(p);}
+  $("exBeforeFile").addEventListener("change",async e=>{const f=e.target.files[0];e.target.value="";if(!f)return;const i=await loadImg(URL.createObjectURL(f));S.exLocal={id:"local",title:"직접 불러온 예시",before:"",beforeImg:i,afterImg:{},after:{},source:"ChatGPT"};S.source="ex:local";showExample();});
+  $("exAfterFile").addEventListener("change",async e=>{const f=e.target.files[0];e.target.value="";if(!f)return;if(!S.exLocal){S.error="먼저 ① 원본 사진을 골라 주세요.";S.canRetry=false;refresh();return;}const i=await loadImg(URL.createObjectURL(f));S.exLocal.afterImg[S.style]=i;S.source="ex:local";showExample();});
+}
+function extractJSON(t){const a=t.indexOf("{"),b=t.lastIndexOf("}");if(a<0||b<a)throw new Error("bad json");return JSON.parse(t.slice(a,b+1));}
+async function askClaude(prompt,blob){
+  const opts={images:[blob],modelTier:"default"};
+  if(typeof SAMPLE.json==="function"){
+    try{return await SAMPLE.json(prompt,opts);}catch(e){if(e&&e.code)throw e;}
+  }
+  const r=await SAMPLE(prompt,opts);return extractJSON(r.text||"");
+}
+async function initClaude(tries){
+  try{
+    if(!(window.claude&&typeof window.claude.use==="function")){if((tries||0)<6)setTimeout(()=>initClaude((tries||0)+1),500);return;}
+    const sm=await window.claude.use("sample");if(!sm)return;
+    let ok=true;try{const l=await sm.limits();ok=!!(l&&l.images);}catch(e){ok=true;}
+    if(ok){SAMPLE=sm;updatePill();refresh();}
+  }catch(e){}
+}
+function updatePill(){
+  $("aikit").hidden=!!API.ready;document.querySelectorAll(".qact").forEach(e=>e.hidden=!!API.ready);
+  if(API.ready){$("promptLbl").textContent="아래 문장이 업로드한 원본 사진과 함께 서버를 거쳐 OpenAI 이미지 편집 API로 전달됩니다. 문장은 prompts.js 파일에서 고칠 수 있습니다.";$("qNote").textContent="스타일마다 한 번씩 [리모델링 이미지 만들기]를 누른 뒤 이 버튼을 누르면 현재 사진과 세 가지 스타일 결과를 나란히 모읍니다.";}
+  refresh();
+  if(API.ready)$("photoHint").textContent="사람, 가족사진, 주소·송장이 보이지 않는 실내 사진을 올려 주세요. 정면에서 수평으로 찍은 사진이 가장 정확합니다. 사진은 변환을 위해 OpenAI로 전송되며, 이 사이트 서버에는 저장하지 않습니다.";
+  $("modePill").textContent=API.ready?"AI 연결됨 · OpenAI "+(API.model||""):SAMPLE?"AI 연결됨 · Claude 구조 분석":"시연용 · AI 연결 전";
+}
+async function checkApi(){
+  try{
+    if(location.protocol==="file:")throw 0;
+    const r=await fetch("/api/remodel",{method:"GET",cache:"no-store"});
+    if(!r.ok)throw 0;
+    const j=await r.json();
+    API={ready:!!j.ready,needsCode:!!j.needsCode,model:j.model};
+  }catch(e){API={ready:false,needsCode:false};}
+  $("codebox").hidden=!(API.ready&&API.needsCode);
+  updatePill();
+}
+function saveCompare(){
+  const R=S.result;if(!R)return;
+  const W=1200,H=800,pad=60,c=document.createElement("canvas");c.width=W*2+30;c.height=H+pad*2;
+  const x=c.getContext("2d");x.fillStyle="#fafbf8";x.fillRect(0,0,c.width,c.height);
+  x.drawImage($("cvBefore"),0,pad);x.drawImage($("cvAfter"),W+30,pad);
+  x.fillStyle="#1c2427";x.font="600 28px 'IBM Plex Sans KR',sans-serif";
+  x.fillText("BEFORE",0,40);x.fillText("AFTER · "+SCENARIOS[R.scenario].name+" · "+STYLES[R.style].name,W+30,40);
+  x.font="22px 'IBM Plex Sans KR',sans-serif";x.fillStyle="#5b676a";
+  const rl=S.real&&S.real.done?"실사 렌더(광선 추적) · ":"";
+  const tag=R.ai&&R.aiSrc==="ChatGPT"?"AI 생성 이미지 (ChatGPT 앱으로 변환"+(R.checked?", Claude 안전 점검 통과":"")+") · 참고용, 실제 시공은 전문가 검토 필요":R.preset?"사전 생성 예시 ("+(R.exSrc||"ChatGPT")+"로 미리 만든 AI 이미지) · 실시간 생성 결과 아님 · 참고용":R.ai&&R.aiSrc&&R.aiSrc!=="Gemini"?"AI 생성 이미지 ("+R.aiSrc+" 이미지 편집, 안전 검사 통과) · 참고용, 실제 시공은 전문가 검토 필요":R.ai?(R.aiSrc?"AI 생성 이미지 ("+R.aiSrc+"로 실사화, 배치는 3D 모델 기준) · 참고용, 실제 시공은 전문가 검토 필요":"AI 생성 이미지 (OpenAI 이미지 모델) · 참고용, 실제 시공은 전문가 검토 필요"):R.engine==="claude"?rl+"AI 구조 분석 기반 (Claude 분석) · 참고용, 실제 시공은 전문가 검토 필요":rl+"예시 공간 데모 · AI 변환 아님";
+  x.fillText(tag,W+30,H+pad+38);
+  const fname="리모델링_비교_"+R.scenario+"_"+R.style+".png";
+  c.toBlob(async b=>{
+    try{if(window.claude&&typeof window.claude.use==="function"){const dl=await window.claude.use("downloads");if(dl){await dl.save({filename:fname,data:b});return;}}}catch(e){if(e&&e.code)return;}
+    const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="리모델링_비교_"+R.scenario+"_"+R.style+".png";document.body.append(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1000);},"image/png");
+}
+
+/* 슬라이더 */
+const ba=$("ba"),range=$("pos");
+function setPos(v){ba.style.setProperty("--pos",v+"%");range.value=v;}
+range.addEventListener("input",()=>setPos(range.value));
+setPos(50);
+
+/* 업로드 */
+function loadFile(f){
+  if(!f||!f.type.startsWith("image/"))return;
+  const url=URL.createObjectURL(f);const img=new Image();
+  img.onload=()=>{S.img=img;S.source="upload";S.result=null;S.error="";drawBefore();drawAfter();refresh();};
+  img.src=url;
+}
+$("file").addEventListener("change",e=>loadFile(e.target.files[0]));
+const drop=$("drop");
+["dragover","dragenter"].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();drop.classList.add("on");}));
+drop.addEventListener("dragleave",()=>drop.classList.toggle("on",S.source==="upload"));
+drop.addEventListener("drop",e=>{e.preventDefault();loadFile(e.dataTransfer.files[0]);});
+
+$("go").addEventListener("click",()=>run(false));
+$("save").addEventListener("click",saveCompare);
+$("copy").addEventListener("click",async()=>{
+  try{await navigator.clipboard.writeText(promptText());$("copy").textContent="복사됨";}
+  catch(e){$("copy").textContent="직접 선택해 복사해 주세요";}
+  setTimeout(()=>$("copy").textContent="복사",1800);
+});
+
+buildSamples();buildExamples();buildOpts($("scenarios"),SCENARIOS,"scenario");buildOpts($("styles"),STYLES,"style");
+syncRadios();run(true);checkApi();initClaude(0);
+$("guideOn").addEventListener("change",refresh);
+$("qGo").addEventListener("click",runQuad);
+/* AI 실사화 (무료 · Gemini 앱): 3D 렌더 + 문장 내보내기, 결과 받아오기 */
+async function copyText(t){try{await navigator.clipboard.writeText(t);return true;}catch(e){return false;}}
+const GPTS={};
+/* 올린 ChatGPT 결과를 Claude로 점검: 사람·로고·글자·선정성이 있으면 표시하지 않음 */
+async function checkResult(file){
+  if(!SAMPLE)return{checked:false};
+  try{const j=await askClaude('Inspect this interior image for a student remodeling demo. Return ONLY JSON {"person":bool,"logo":bool,"text":bool,"sexual":bool,"interior":bool}. person = any human or body part (also in mirrors, pictures, screens). logo = any brand logo or trademark. text = readable letters, words or numbers. sexual = any nudity or suggestive content. interior = it is a photo of a room interior.',file);
+    const hits=[["person","사람"],["logo","로고"],["text","글자"],["sexual","선정적 내용"]].filter(([k])=>j&&j[k]===true).map(([,v])=>v);
+    if(j&&j.interior===false)hits.push("실내 사진 아님");
+    return hits.length?{blocked:true,checked:true,msg:"점검 결과 "+hits.join("·")+"이(가) 발견되었습니다."}:{checked:true};}
+  catch(e){return{checked:false};}
+}/* 사진별·스타일별 ChatGPT 결과 */
+function gptKey(){return S.img?S.img.src+"|"+S.scenario:"";}
+async function kitFor(st){
+  if(S.source!=="upload"||!S.img){$("kitMsg").textContent="먼저 왼쪽 1단계에서 내 방 사진을 올려 주세요. (예시 그림은 ChatGPT 변환 대상이 아닙니다)";return;}
+  const ok=await copyText(buildPrompt(S.scenario,st));
+  const p=prepImage(S.img);const b=await (await fetch(p.data)).blob();
+  saveBlob(b,"변환재료_사진_"+S.scenario+".jpg");
+  $("kitMsg").textContent=(ok?`'${STYLES[st].name}' 지시문을 복사했습니다. `:"복사가 막혀 있어요: 아래 ‘이미지 생성 프롬프트’ 상자의 문장을 직접 복사해 주세요. ")+"ChatGPT 새 대화에 사진을 첨부하고 붙여넣어 보내세요. 스타일마다 새 대화로 하면 결과가 섞이지 않습니다.";
+}
+$("kitGet").addEventListener("click",()=>kitFor(S.style));
+function readImg(f){return new Promise((ok,no)=>{if(!f||!f.type.startsWith("image/"))return no(new Error("이미지 파일이 아닙니다."));const i=new Image();i.onload=()=>ok(i);i.onerror=()=>no(new Error("이미지를 읽지 못했습니다."));i.src=URL.createObjectURL(f);});}
+function putGpt(st,img){const k=gptKey();(GPTS[k]=GPTS[k]||{})[st]=img;}
+$("kitFile").addEventListener("change",async e=>{const f=e.target.files[0];e.target.value="";
+  if(S.source!=="upload"||!S.img){$("kitMsg").textContent="먼저 내 방 사진을 올린 뒤, 그 사진으로 만든 결과를 올려 주세요.";return;}
+  try{const img=await readImg(f);stopReal();
+    const chk=await checkResult(f);if(chk.blocked){$("kitMsg").textContent=chk.msg+" 이 이미지는 표시하지 않습니다. ChatGPT에서 다시 만들어 주세요.";return;}
+    img._checked=!!chk.checked;putGpt(S.style,img);
+    const an=S.result&&S.result.analysis;S.result={scenario:S.scenario,style:S.style,img,ai:true,aiSrc:"ChatGPT",checked:chk.checked,analysis:an,engine:an?"claude":undefined};S.real=null;S.error="";
+    drawAfter();refresh();$("kitMsg").textContent=`'${STYLES[S.style].name}' 결과를 After에 넣었습니다.`+(chk.checked?" (사람·로고·글자·선정성 점검 통과)":" (자동 점검을 못 했으니 사람·로고·글자가 없는지 직접 확인해 주세요)")+" 다른 스타일도 만들면 [4안 비교]에 모입니다.";}
+  catch(err){$("kitMsg").textContent=err.message;}});
+document.querySelectorAll("[data-qk]").forEach(b=>b.addEventListener("click",()=>{kitFor(QSTY[+b.dataset.qk-1]);$("qNote").textContent=$("kitMsg").textContent||"내 방 사진을 먼저 올려 주세요.";}));
+document.querySelectorAll("[data-qu]").forEach(inp=>inp.addEventListener("change",async e=>{const i=+inp.dataset.qu,f=e.target.files[0];e.target.value="";
+  try{const img=await readImg(f);if(S.source==="upload"&&S.img)putGpt(QSTY[i-1],img);const c=$("q"+i).getContext("2d");c.fillStyle="#1c2427";c.fillRect(0,0,1200,800);coverDraw(c,img,true);$("qs"+i).textContent="AI 생성 · ChatGPT";$("qSave").disabled=false;}catch(err){$("qNote").textContent=err.message;}}));$("qSave").addEventListener("click",saveQuad);
+window.__rt={planLayout,captureScene,PT_FACTORY,denoise,toneMap,drawAfter,drawBefore,refresh,get S(){return S;}};
+$("realOn").addEventListener("change",()=>{if($("realOn").checked)startReal();else drawAfter();refresh();});
+})();
+</script>
+</body>
+</html>
