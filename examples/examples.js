@@ -15,8 +15,9 @@ globalThis.PREGENERATED_EXAMPLES = [
     scenario: "single",
     type: "bedroom",
     status: "ready",
-    // 원본은 개인 물건을 모자이크한 사진입니다 (공개 저장소)
     original: "examples/room1_before.jpg",
+    // 직접 촬영한 원본에서 개인 물품만 정리 보정한 사진 (방 구조·시점·마감은 그대로)
+    originalLabel: "원본 사진 (개인 물품 정리 보정)",
     styles: {
       nordic:  { image: "examples/room1_nordic.jpg",  summary: "색채를 활용한 북유럽형 소형 침실. 의자식 식사, 별도 공부 공간, 밝은 목재와 컬러 포인트를 사용." },
       minimal: { image: "examples/room1_minimal.jpg", summary: "통합 수납과 접이식 기능을 중심으로 바닥을 비운 미니멀 소형 침실." },
@@ -31,7 +32,7 @@ globalThis.EXAMPLES = globalThis.PREGENERATED_EXAMPLES
   .filter(e => e.status === "ready")
   .map(e => ({
     id: e.id, title: e.title, scenario: e.scenario, type: e.type, variant: "A", source: "ChatGPT",
-    before: e.original,
+    before: e.original, beforeLabel: e.originalLabel,
     after: Object.fromEntries(Object.entries(e.styles).map(([k, v]) => [k, v.image])),
     summary: Object.fromEntries(Object.entries(e.styles).map(([k, v]) => [k, v.summary]))
   }));
