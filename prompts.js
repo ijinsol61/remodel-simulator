@@ -22,7 +22,7 @@ const SCENARIOS = {
 
 const STYLES = {
   nordic: {
-    name: "북유럽",
+    name: "북유럽식",
     desc: "다양한 색, 자연 소재, 일상에 맞는 가벼운 가구",
     sw: ["#f2eee5", "#a9b7a0", "#af654d", "#2851a3"],
     wall: "아이보리 벽 + 세이지그린 포인트 벽",
@@ -35,7 +35,7 @@ const STYLES = {
     prompt: "CONCEPT — SCANDINAVIAN: comfortable everyday life, light functional furniture on slender legs, natural materials and a thoughtful varied palette, not an all-beige room. Chair-seated dining: a small chair-height light-oak drop-leaf dining table with one generic wooden dining chair painted matte cobalt blue (about #2851A3); no floor dining, no soban, no floor cushions. Sleeping on a slim light-oak daybed or bed on raised legs with plain ivory bedding, one ochre and one dusty-blue cushion. A separate small study desk with its own quiet chair near daylight, so studying and eating do not share one tabletop. A compact freestanding warm-white and light-oak clothes cupboard with small wood pulls, not a wall of grey built-ins. Warm ivory walls (about #F2EEE5) with one soft sage-green wall (about #A9B7A0); pale matte oak floor. Replace the entrance door leaf, frame and handle with a smooth matte terracotta slab (about #AF654D), slim oak jamb and a short brushed-nickel lever. Plain linen sheer curtain drawn aside, a plain wool rug, one or two small plants, a soft-white pendant over the dining spot, a reading light and a desk lamp, balanced with clean natural daylight so the colours stay distinct. No sofa, no patterned textiles, no famous designer-chair silhouettes"
   },
   minimal: {
-    name: "미니멀",
+    name: "현대식",  // 내부 ID는 minimal 유지
     desc: "닫힌 수납, 기능 통합, 필요할 때 펼치는 가구",
     sw: ["#efeee9", "#cfc8bd", "#d9d4cb", "#3c3c3a"],
     wall: "무광 아이보리·따뜻한 회색, 걸레받이 최소화",
@@ -48,7 +48,7 @@ const STYLES = {
     prompt: "CONCEPT — MINIMALIST: fewer separate objects, functions integrated into closed furniture, generous clear floor. A limited palette of warm grey, matte ivory, pale ash and a little charcoal; do not simply bleach Scandinavian furniture white. A continuous wall of flush closed full-height storage in matte warm greige with aligned seams and concealed handles. A chair-height fold-down dining panel built into that storage wall, shown open with one light charcoal folding chair and a modest single-place meal. A single bed integrated with a low storage plinth, placed so the centre of the floor stays clear. A separate slim wall-mounted study ledge with restrained task lighting. Replace the entrance door leaf, frame and handle with a smooth matte warm-greige flush slab, a narrow same-colour jamb and a short matte black straight lever on a small rosette. Very slim window frames with a plain roller blind. Flat unpatterned walls, thin baseboards or shadow gaps, a pale warm-grey matte mineral-look floor or very low-contrast pale ash planks. A slim linear ceiling luminaire close to the ceiling and compact integrated task lights, no pendant. Plain white bedding with one smooth charcoal throw. No sofa, no patterned rug, no decorative cushions, no display shelving, no ornamental trim"
   },
   hanok: {
-    name: "한옥모던",
+    name: "한옥식",
     desc: "좌식 생활과 목재 창호에서 착안한 현대적 공간",
     sw: ["#f1ebdf", "#9a6b45", "#6b4a2e", "#33415c"],
     wall: "미색 한지 느낌 벽 마감",

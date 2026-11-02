@@ -47,6 +47,7 @@ header.top .sub{font-size:13px;color:var(--muted);margin-top:2px}
 .demo-pill{font-family:var(--font-mono);font-size:12px;border:1px solid var(--warn);color:var(--warn);background:var(--warn-soft);padding:4px 10px;border-radius:999px;white-space:nowrap}
 .main{display:grid;grid-template-columns:360px 1fr;gap:18px;align-items:start}
 @media (max-width:920px){.main{grid-template-columns:1fr}}
+@media (max-width:600px){.qgrid{grid-template-columns:1fr}}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:18px}
 .step{display:flex;flex-direction:column;gap:10px}
 .step-h{display:flex;align-items:center;gap:10px}
@@ -232,12 +233,12 @@ footer{font-size:12.5px;color:var(--muted);border-top:1px solid var(--line);padd
       </section>
       <section class="sheet quad" id="quad" aria-label="4안 비교">
         <div class="qhead"><h3>원본과 3가지 스타일 비교 · 같은 시점</h3><div class="qbtns"><button class="copy" id="qGo" type="button">비교 화면 만들기</button><button class="copy" id="qSave" type="button" disabled>비교 이미지 저장</button></div></div>
-        <p class="lbl" id="qNote">원본 사진과 북유럽·미니멀·한옥모던 결과를 한 화면에 나란히 보여줍니다. 세 스타일은 가구·배치·식사 방식이 서로 다르고, 문에서 보는 시점만 같습니다.</p>
+        <p class="lbl" id="qNote">원본 사진과 북유럽식·현대식·한옥식 결과를 한 화면에 나란히 보여줍니다. 세 스타일은 가구·배치·식사 방식이 서로 다르고, 문에서 보는 시점만 같습니다.</p>
         <div class="qgrid">
           <figure><canvas id="q0" width="1200" height="800"></canvas><figcaption><b id="q0name">원본 사진</b><span id="qs0"></span></figcaption></figure>
-          <figure><canvas id="q1" width="1200" height="800"></canvas><figcaption><b>북유럽</b><span id="qs1"></span></figcaption><div class="qact"><button class="copy" data-qk="1" type="button">변환 재료</button><label class="copy">ChatGPT 결과 올리기<input type="file" accept="image/*" data-qu="1" hidden></label></div></figure>
-          <figure><canvas id="q2" width="1200" height="800"></canvas><figcaption><b>미니멀</b><span id="qs2"></span></figcaption><div class="qact"><button class="copy" data-qk="2" type="button">변환 재료</button><label class="copy">ChatGPT 결과 올리기<input type="file" accept="image/*" data-qu="2" hidden></label></div></figure>
-          <figure><canvas id="q3" width="1200" height="800"></canvas><figcaption><b>한옥모던</b><span id="qs3"></span></figcaption><div class="qact"><button class="copy" data-qk="3" type="button">변환 재료</button><label class="copy">ChatGPT 결과 올리기<input type="file" accept="image/*" data-qu="3" hidden></label></div></figure>
+          <figure><canvas id="q1" width="1200" height="800"></canvas><figcaption><b id="q1name">북유럽식</b><span id="qs1"></span></figcaption><div class="qact"><button class="copy" data-qk="1" type="button">변환 재료</button><label class="copy">ChatGPT 결과 올리기<input type="file" accept="image/*" data-qu="1" hidden></label></div></figure>
+          <figure><canvas id="q2" width="1200" height="800"></canvas><figcaption><b id="q2name">현대식</b><span id="qs2"></span></figcaption><div class="qact"><button class="copy" data-qk="2" type="button">변환 재료</button><label class="copy">ChatGPT 결과 올리기<input type="file" accept="image/*" data-qu="2" hidden></label></div></figure>
+          <figure><canvas id="q3" width="1200" height="800"></canvas><figcaption><b id="q3name">한옥식</b><span id="qs3"></span></figcaption><div class="qact"><button class="copy" data-qk="3" type="button">변환 재료</button><label class="copy">ChatGPT 결과 올리기<input type="file" accept="image/*" data-qu="3" hidden></label></div></figure>
         </div>
       </section>
 
@@ -266,8 +267,8 @@ footer{font-size:12.5px;color:var(--muted);border-top:1px solid var(--line);padd
   </footer>
 </div>
 
-<script src="prompts.js"></script>
-<script src="examples/examples.js"></script>
+<script src="prompts.js?v=20261102-2345"></script>
+<script src="examples/examples.js?v=20261102-2345"></script>
 <script>
 (function(){
 "use strict";
@@ -1204,10 +1205,10 @@ function runReal(scene,key,frame,tc,onState){
 let QJ=null,QRUN=0;const QSTY=["nordic","minimal","hanok"];
 function stopQuad(){QRUN++;if(QJ){QJ.dead=true;(QJ.ws||[]).forEach(w=>{try{w.terminate();}catch(e){}});QJ=null;}}
 async function runQuad(){
-  const lbl=["원본 사진","북유럽","미니멀","한옥모던"];
+  const lbl=["원본 사진",STYLES.nordic.name,STYLES.minimal.name,STYLES.hanok.name];
   const imgSet=isEx()?(()=>{const ex=curEx()||{};const o={};QSTY.forEach(st=>{o[st]=ex.afterImg&&ex.afterImg[st]||null;});return{ex,o};})():null;
   if(isEx()||S.source==="upload"){
-    stopQuad();const q=i=>$("q"+i).getContext("2d");q(0).clearRect(0,0,1200,800);if(isEx()){if(S.exBefore)coverDraw(q(0),S.exBefore,"contain");else pending(q(0),"이미지 준비 중");}else if(S.img)coverDraw(q(0),S.img,true);$("qs0").textContent=isEx()?"원본":"내 사진";$("q0name").textContent=isEx()&&curEx()&&curEx().beforeLabel?curEx().beforeLabel:"원본 사진";
+    stopQuad();const q=i=>$("q"+i).getContext("2d");q(0).clearRect(0,0,1200,800);if(isEx()){if(S.exBefore)coverDraw(q(0),S.exBefore,"contain");else pending(q(0),"이미지 준비 중");}else if(S.img)coverDraw(q(0),S.img,true);$("qs0").textContent=isEx()?((curEx()&&curEx().beforeLabel)||"직접 촬영 원본"):"내 사진";$("q0name").textContent=isEx()?"현재 상태":"원본 사진";
     for(let i=0;i<3;i++){const st=QSTY[i],c=q(i+1);let img=null;
       if(isEx()){const ex=imgSet.ex;img=imgSet.o[st];if(!img&&ex.after&&ex.after[st]){try{img=await imgOnce(ex.after[st]);}catch(e){}}}
       else{const ck=S.img?S.img.src+"|"+S.scenario:"";img=(APIC[ck]&&APIC[ck][st])||(GPTS[ck]&&GPTS[ck][st]);}
@@ -1241,7 +1242,7 @@ function saveQuad(){
   const R=S.result||{scenario:S.scenario};const w=1200,h=800,g=30,top=70,c=document.createElement("canvas");c.width=w*2+g;c.height=(h+56)*2+top+40;
   const x=c.getContext("2d");x.fillStyle="#fafbf8";x.fillRect(0,0,c.width,c.height);x.fillStyle="#1c2427";x.font="600 30px 'IBM Plex Sans KR',sans-serif";
   x.fillText((isEx()&&curEx()?curEx().title:"원본과 3가지 스타일 비교")+" · "+SCENARIOS[R.scenario].name+" · 같은 시점",0,44);
-  [(isEx()&&curEx()&&curEx().beforeLabel)||"원본 사진","북유럽","미니멀","한옥모던"].forEach((t,i)=>{const ox=(i%2)*(w+g),oy=top+Math.floor(i/2)*(h+56);x.drawImage($("q"+i),ox,oy);x.font="600 26px 'IBM Plex Sans KR',sans-serif";x.fillStyle="#1c2427";x.fillText(t+(i?" · "+$("qs"+i).textContent:""),ox,oy+h+36);});
+  [(isEx()&&curEx()&&curEx().beforeLabel)||"원본 사진",STYLES.nordic.name,STYLES.minimal.name,STYLES.hanok.name].forEach((t,i)=>{const ox=(i%2)*(w+g),oy=top+Math.floor(i/2)*(h+56);x.drawImage($("q"+i),ox,oy);x.font="600 26px 'IBM Plex Sans KR',sans-serif";x.fillStyle="#1c2427";x.fillText(t+(i?" · "+$("qs"+i).textContent:""),ox,oy+h+36);});
   x.font="22px 'IBM Plex Sans KR',sans-serif";x.fillStyle="#5b676a";const anyAI=[1,2,3].some(i=>$("qs"+i).textContent.startsWith("AI"));x.fillText(isEx()?"AI 리모델링 시안 · 사전 생성 예시"+(curEx()&&curEx().variant==="B"?" (Claude 원문 1회 적용 비교)":"")+" · 실시간 생성 결과 아님 · 참고용, 실제 시공은 전문가 검토 필요":(API.ready&&S.source==="upload")?"AI 생성 이미지 ("+engName()+" 이미지 편집, 안전 검사 통과분만 표시) · 참고용, 실제 시공은 전문가 검토 필요":(anyAI?"AI 생성 이미지 포함 (Gemini로 실사화, 배치는 3D 모델 기준) · ":"")+(R.engine==="claude"?"AI 구조 분석(Claude) 기반 3D · 참고용, 실제 시공은 전문가 검토 필요":"예시 공간 3D · 광선 추적 렌더 · 참고용"),0,c.height-14);
   c.toBlob(b=>saveBlob(b,"리모델링_4안비교_"+R.scenario+".png"),"image/png");
 }
@@ -1285,7 +1286,7 @@ function refresh(){
   const rows=pr?[["벽 마감",pr.wall||st.wall],["바닥 마감",pr.floor||st.floor],["조명",pr.light||st.light],["창호",(pr.window||st.window)+" (창 위치·크기 유지)"],["입구 문",st.door||"-"],["가구",pr.furniture||st.furn],["식사",st.meal||"-"],[sc.row[0],pr.extra||sc.row[1]]]
     :[["벽 마감",st.wall],["바닥 마감",st.floor],["조명",st.light],["창호",st.window+" (창 위치·크기 유지)"],["입구 문",st.door||"-"],["가구",st.furn],["식사",st.meal||"-"],sc.row];
   const exc=isEx()?curEx():null,exSum=exc&&exc.summary&&exc.summary[S.style];
-  if(exc&&exc.id!=="local"){rows.length=0;rows.push(["사례",exc.title+" · "+(SCENARIOS[exc.scenario]?SCENARIOS[exc.scenario].name:"")],["Before",exc.beforeLabel||"직접 촬영 원본 사진"],["스타일",STYLES[S.style].name],["설계 요지",exSum||"이미지 준비 중"],["표시","AI 리모델링 시안 · 사전 생성 예시 (실시간 생성 결과 아님)"],["제작","ChatGPT로 생성 후 팀이 내용 검수 · 참고용, 실제 시공은 전문가 검토 필요"]);}
+  if(exc&&exc.id!=="local"){rows.length=0;rows.push(["사례",exc.title+" · "+(SCENARIOS[exc.scenario]?SCENARIOS[exc.scenario].name:"")],["현재 상태",exc.beforeLabel||"직접 촬영 원본"],["스타일",STYLES[S.style].name],["설계 요지",exSum||"이미지 준비 중"],["표시","AI 리모델링 시안 · 사전 생성 예시 (실시간 생성 결과 아님)"],["제작","ChatGPT로 생성 후 팀이 내용 검수 · 디자인 비교·공간 활용 제안용, 실제 시공은 전문가 검토 필요"]);if(Array.isArray(exc.conditions)&&exc.conditions.length)rows.push(["공간 조건",exc.conditions.join("\n")]);}
   $("specTitle").textContent=exc&&exc.id!=="local"?"사전 생성 예시 · 설계 요지":pr?"AI가 이 사진에 맞춰 제안한 변환 기준":"적용된 변환 기준";
   const note=$("aiNote");note.hidden=!an;
   if(an){note.innerHTML="";const t=document.createElement("div");t.textContent=an.summary_ko||"";note.append(t);
@@ -1411,7 +1412,8 @@ function prepImage(img,max){
 const EXS=Array.isArray(globalThis.EXAMPLES)?globalThis.EXAMPLES:[];const EXIMG={};
 function isEx(){return String(S.source).startsWith("ex:");}
 function curEx(){const id=String(S.source).slice(3);return id==="local"?S.exLocal:EXS.find(e=>e.id===id);}
-function imgOnce(src){return EXIMG[src]||(EXIMG[src]=loadImg(src));}
+/* 사진을 바꾸면 examples.js의 EXAMPLES_VERSION 숫자만 바꾸면 새 사진을 불러옴 */
+function imgOnce(src){const v=globalThis.EXAMPLES_VERSION||"1",u=/^(data|blob):/.test(src)?src:src+(src.includes("?")?"&":"?")+"v="+v;return EXIMG[u]||(EXIMG[u]=loadImg(u));}
 async function showExample(){
   const ex=curEx();if(!ex)return;stopReal();
   try{S.exBefore=ex.beforeImg||await imgOnce(ex.before);}catch(e){S.exBefore=null;}
