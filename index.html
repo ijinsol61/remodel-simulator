@@ -144,6 +144,7 @@ table.spec th{width:96px;color:var(--muted);font-weight:500;white-space:nowrap}
 .copy{appearance:none;border:1px solid var(--line);background:var(--paper);color:var(--ink);font:inherit;font-size:12.5px;padding:4px 10px;border-radius:6px;cursor:pointer}
 footer{font-size:12.5px;color:var(--muted);border-top:1px solid var(--line);padding-top:12px;display:flex;flex-direction:column;gap:4px}
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+.sample .exsub{display:block;font-size:11.5px;color:#6b7679;font-weight:400;margin-top:2px}
 </style>
 </head>
 <body>
@@ -250,6 +251,7 @@ footer{font-size:12.5px;color:var(--muted);border-top:1px solid var(--line);padd
         </section>
         <section class="card2">
           <div class="row"><h3>이미지 생성 프롬프트</h3><button class="copy" id="copy" type="button">복사</button></div>
+          <p class="hint" id="exPromptNote" hidden>사전 생성 예시는 ChatGPT에서 사례별로 따로 만든 것이라, 아래 문장과 똑같지 않을 수 있습니다. 아래는 '내 방 사진 올리기'로 변환할 때 쓰는 문장입니다.</p>
           <p class="lbl" id="promptLbl">시나리오와 스타일을 고르면 아래 문장이 자동으로 조합됩니다. 내 방 사진과 함께 ChatGPT에 넣으면 같은 방 구조의 리모델링 사진이 됩니다. 문장은 prompts.js 파일에서 고칠 수 있습니다.</p>
           <pre class="prompt" id="prompt"></pre>
         </section>
@@ -771,8 +773,9 @@ Rules: keep wall positions, window and door positions and sizes, and ceiling hei
 
 /* ---------- 업로드 사진 색감 미리보기 ---------- */
 let FRAME=null;
+function pending(ctx,msg){ctx.clearRect(0,0,1200,800);ctx.fillStyle="#1c2427";ctx.fillRect(0,0,1200,800);ctx.fillStyle="#9aa5a8";ctx.textAlign="center";ctx.font="600 40px 'IBM Plex Sans KR',sans-serif";ctx.fillText(msg||"이미지 준비 중",600,392);ctx.font="24px 'IBM Plex Sans KR',sans-serif";ctx.fillText("사전 생성 예시 이미지를 올리는 중입니다",600,440);ctx.textAlign="start";}
 function coverDraw(ctx,img,keepWhole){
-  const ar=img.width/img.height,fit=keepWhole&&ar<1.3;
+  const ar=img.width/img.height,fit=keepWhole==="contain"||(keepWhole&&ar<1.3);
   const r=fit?Math.min(1200/img.width,800/img.height):Math.max(1200/img.width,800/img.height),w=img.width*r,h=img.height*r;
   ctx.clearRect(0,0,1200,800);
   if(fit){ctx.fillStyle="#1c2427";ctx.fillRect(0,0,1200,800);}
@@ -1204,14 +1207,14 @@ async function runQuad(){
   const lbl=["원본 사진","북유럽","미니멀","한옥모던"];
   const imgSet=isEx()?(()=>{const ex=curEx()||{};const o={};QSTY.forEach(st=>{o[st]=ex.afterImg&&ex.afterImg[st]||null;});return{ex,o};})():null;
   if(isEx()||S.source==="upload"){
-    stopQuad();const q=i=>$("q"+i).getContext("2d");q(0).clearRect(0,0,1200,800);if(S.exBefore||S.img)coverDraw(q(0),isEx()?S.exBefore:S.img,true);$("qs0").textContent=isEx()?"원본":"내 사진";
+    stopQuad();const q=i=>$("q"+i).getContext("2d");q(0).clearRect(0,0,1200,800);if(isEx()){if(S.exBefore)coverDraw(q(0),S.exBefore,"contain");else pending(q(0),"이미지 준비 중");}else if(S.img)coverDraw(q(0),S.img,true);$("qs0").textContent=isEx()?"원본":"내 사진";
     for(let i=0;i<3;i++){const st=QSTY[i],c=q(i+1);let img=null;
       if(isEx()){const ex=imgSet.ex;img=imgSet.o[st];if(!img&&ex.after&&ex.after[st]){try{img=await imgOnce(ex.after[st]);}catch(e){}}}
       else{const ck=S.img?S.img.src+"|"+S.scenario:"";img=(APIC[ck]&&APIC[ck][st])||(GPTS[ck]&&GPTS[ck][st]);}
       c.fillStyle="#1c2427";c.fillRect(0,0,1200,800);
       const fromApi=!isEx()&&APIC[S.img?S.img.src+"|"+S.scenario:""]&&APIC[S.img.src+"|"+S.scenario][st]===img;
-      if(img){coverDraw(c,img,true);$("qs"+(i+1)).textContent=isEx()?"AI 리모델링 시안 · 사전 생성 예시":fromApi?"AI 생성 · "+engName():"AI 생성 · ChatGPT";}
-      else{c.fillStyle="#9aa5a8";c.font="600 40px sans-serif";c.textAlign="center";c.fillText(isEx()?"이 스타일 예시 없음":"아직 변환하지 않음",600,400);c.textAlign="start";$("qs"+(i+1)).textContent=isEx()?"없음":API.ready?"스타일을 고르고 [만들기]":"[변환 재료] → ChatGPT → [결과 올리기]";}}
+      if(img){coverDraw(c,img,isEx()?"contain":true);$("qs"+(i+1)).textContent=isEx()?"AI 리모델링 시안 · 사전 생성 예시":fromApi?"AI 생성 · "+engName():"AI 생성 · ChatGPT";}
+      else{c.fillStyle="#9aa5a8";c.font="600 40px sans-serif";c.textAlign="center";c.fillText(isEx()?"이미지 준비 중":"아직 변환하지 않음",600,400);c.textAlign="start";$("qs"+(i+1)).textContent=isEx()?"이미지 준비 중":API.ready?"스타일을 고르고 [만들기]":"[변환 재료] → ChatGPT → [결과 올리기]";}}
     $("qNote").textContent=isEx()?"AI 리모델링 시안 · 사전 생성 예시"+(curEx()&&curEx().variant==="B"?" · Claude 원문 1회 적용 비교 (최종안 아님)":"")+" · 실시간 생성 아님":"이 사진으로 만든 스타일별 결과를 모았습니다. 비어 있는 칸은 아래 버튼으로 채울 수 있습니다.";
     document.querySelectorAll(".qact").forEach(e=>e.hidden=isEx()||!!API.ready);$("qSave").disabled=false;return;}
   const R=S.result;if(!R||(R.img&&!R.aiSrc)||(S.source==="upload"&&!R.analysis)){$("qNote").textContent=S.source==="upload"?"먼저 [리모델링 이미지 만들기]로 사진 구조 분석을 끝낸 뒤 눌러 주세요.":"먼저 위에서 결과를 만들어 주세요.";return;}
@@ -1244,7 +1247,7 @@ function saveQuad(){
 }
 
 /* ---------- 상태와 화면 ---------- */
-const S={source:"A",img:null,scenario:"old",style:"nordic",result:null};
+const S={source:"A",img:null,scenario:"single",style:"nordic",result:null};
 const $=id=>document.getElementById(id);
 const cb=$("cvBefore").getContext("2d"),ca=$("cvAfter").getContext("2d",{willReadFrequently:true});
 
@@ -1253,9 +1256,9 @@ function buildSamples(){
   const box_=$("samples");
   Object.keys(SAMPLES).forEach(k=>{
     const b=document.createElement("button");b.type="button";b.className="sample";b.dataset.k=k;b.id="sample-"+k;
-    const c=document.createElement("canvas");c.width=240;c.height=160;const x=c.getContext("2d");x.setTransform(.2,0,0,.2,0,0);drawScene(x,k,"before","old");
+    const c=document.createElement("canvas");c.width=240;c.height=160;const x=c.getContext("2d");x.setTransform(.2,0,0,.2,0,0);drawScene(x,k,"before","single");
     const s=document.createElement("span");s.textContent=SAMPLES[k].name+" (예시)";
-    b.append(c,s);b.addEventListener("click",()=>{S.source=k;S.scenario=k==="B"?"single":"old";syncRadios();S.result=null;S.error="";run(true);});
+    b.append(c,s);b.addEventListener("click",()=>{S.source=k;S.scenario="single";syncRadios();S.result=null;S.error="";run(true);});
     box_.append(b);
   });
 }
@@ -1281,7 +1284,9 @@ function refresh(){
   const RR=S.result,an=RR&&RR.analysis&&RR.scenario===S.scenario&&RR.style===S.style?RR.analysis:null,pr=an&&an.proposal_ko;
   const rows=pr?[["벽 마감",pr.wall||st.wall],["바닥 마감",pr.floor||st.floor],["조명",pr.light||st.light],["창호",(pr.window||st.window)+" (창 위치·크기 유지)"],["입구 문",st.door||"-"],["가구",pr.furniture||st.furn],["식사",st.meal||"-"],[sc.row[0],pr.extra||sc.row[1]]]
     :[["벽 마감",st.wall],["바닥 마감",st.floor],["조명",st.light],["창호",st.window+" (창 위치·크기 유지)"],["입구 문",st.door||"-"],["가구",st.furn],["식사",st.meal||"-"],sc.row];
-  $("specTitle").textContent=pr?"AI가 이 사진에 맞춰 제안한 변환 기준":"적용된 변환 기준";
+  const exc=isEx()?curEx():null,exSum=exc&&exc.summary&&exc.summary[S.style];
+  if(exc&&exc.id!=="local"){rows.length=0;rows.push(["사례",exc.title+" · "+(SCENARIOS[exc.scenario]?SCENARIOS[exc.scenario].name:"")],["스타일",STYLES[S.style].name],["설계 요지",exSum||"이미지 준비 중"],["표시","AI 리모델링 시안 · 사전 생성 예시 (실시간 생성 결과 아님)"],["제작","ChatGPT로 생성 후 팀이 내용 검수 · 참고용, 실제 시공은 전문가 검토 필요"]);}
+  $("specTitle").textContent=exc&&exc.id!=="local"?"사전 생성 예시 · 설계 요지":pr?"AI가 이 사진에 맞춰 제안한 변환 기준":"적용된 변환 기준";
   const note=$("aiNote");note.hidden=!an;
   if(an){note.innerHTML="";const t=document.createElement("div");t.textContent=an.summary_ko||"";note.append(t);
     const cs=Array.isArray(an.condition_ko)?an.condition_ko.slice(0,4):[];
@@ -1289,6 +1294,7 @@ function refresh(){
   if(LAST_PLAN&&RR&&!RR.img&&LAST_PLAN.scenario===RR.scenario&&RR.scenario===S.scenario&&RR.style===S.style)rows.push(["가구 재배치",LAST_PLAN.notes.join("\n")]);
   const tb=$("spec");tb.innerHTML="";rows.forEach(r=>{const tr=document.createElement("tr"),th=document.createElement("th"),td=document.createElement("td");th.scope="row";th.textContent=r[0];td.textContent=r[1];tr.append(th,td);tb.append(tr);});
   $("prompt").textContent=promptText();
+  $("exPromptNote").hidden=!(isEx()&&curEx()&&curEx().id!=="local");
   // 상태
   const R=S.result,stale=R&&(R.scenario!==S.scenario||R.style!==S.style);
   const parts=[];
@@ -1304,14 +1310,14 @@ function refresh(){
   $("titleblock").innerHTML=`<div>DWG. ${src.dwg}</div><div>${src.name}${S.source==="upload"||isEx()?"":" (예시)"}</div><div>${src.dims}</div><div>N.T.S.</div>`;
   const badge=$("badge");
   const RL=S.real;
-  badge.textContent=!R&&(isEx()||(API.ready&&S.source==="upload"))?"결과 없음":S.source==="upload"&&!API.ready&&(!R||!R.img)?"ChatGPT 변환 대기":R&&R.preset?"AI 리모델링 시안 · 사전 생성 예시"+(R.variant==="B"?" · Claude 원문 1회 적용 비교":"")+" · 실시간 생성 아님":R&&R.ai?(R.aiSrc==="ChatGPT"?"AI 생성 이미지 · ChatGPT 앱으로 변환"+(R.checked?" · 안전 점검 통과":""):R.aiSrc==="Gemini"?"AI 실사화 이미지 · Gemini · 배치는 3D 모델 기준":R.aiSrc?"AI 생성 이미지 · "+R.aiSrc+" · 안전 검사 통과"+(R.secs?" · "+R.secs+"초":""):"AI 생성 이미지"):RL&&RL.done?(R.engine==="claude"?"실사 렌더 · AI 구조 분석 기반":"실사 렌더 · 예시 공간"):RL?"실사 렌더 중 "+Math.round(RL.k/REAL_SPP*100)+"% · 점점 선명해져요":R&&R.engine==="claude"?"AI 구조 분석 렌더 · Claude":S.source==="upload"?"색감 미리보기 · AI 변환 아님":"데모 렌더 · AI 변환 아님";
+  badge.textContent=!R&&isEx()?"사전 생성 예시 · 이미지 준비 중":!R&&((API.ready&&S.source==="upload"))?"결과 없음":S.source==="upload"&&!API.ready&&(!R||!R.img)?"ChatGPT 변환 대기":R&&R.preset?"AI 리모델링 시안 · 사전 생성 예시"+(R.variant==="B"?" · Claude 원문 1회 적용 비교":"")+" · 실시간 생성 아님":R&&R.ai?(R.aiSrc==="ChatGPT"?"AI 생성 이미지 · ChatGPT 앱으로 변환"+(R.checked?" · 안전 점검 통과":""):R.aiSrc==="Gemini"?"AI 실사화 이미지 · Gemini · 배치는 3D 모델 기준":R.aiSrc?"AI 생성 이미지 · "+R.aiSrc+" · 안전 검사 통과"+(R.secs?" · "+R.secs+"초":""):"AI 생성 이미지"):RL&&RL.done?(R.engine==="claude"?"실사 렌더 · AI 구조 분석 기반":"실사 렌더 · 예시 공간"):RL?"실사 렌더 중 "+Math.round(RL.k/REAL_SPP*100)+"% · 점점 선명해져요":R&&R.engine==="claude"?"AI 구조 분석 렌더 · Claude":S.source==="upload"?"색감 미리보기 · AI 변환 아님":"데모 렌더 · AI 변환 아님";
   $("realWrap").hidden=!canReal();
   badge.classList.toggle("ai",!!(R&&(R.ai||R.engine)));
   const gOk=!!(R&&R.analysis&&S.source==="upload");$("guideWrap").hidden=!gOk;$("cvGuide").hidden=!(gOk&&$("guideOn").checked);
   $("save").disabled=!R;
 }
 function drawBefore(){
-  if(isEx()&&S.exBefore)coverDraw(cb,S.exBefore,true);
+  if(isEx()){if(S.exBefore)coverDraw(cb,S.exBefore,"contain");else{FRAME=null;pending(cb,"원본 이미지 준비 중");}}
   else if(S.source==="upload"&&S.img)coverDraw(cb,S.img,true);else{FRAME=null;drawScene(cb,S.source,"before",S.scenario);}
 }
 function drawGuideLayer(){const g=$("cvGuide").getContext("2d");const R=S.result;drawGuide(g,R&&R.analysis&&S.source==="upload"?R.analysis:null);}
@@ -1319,8 +1325,9 @@ function drawAfter(){
   stopReal();stopQuad();S.real=null;
   drawGuideLayer();
   const R=S.result;$("empty").hidden=!!R;
+  if(!R&&isEx()){$("empty").hidden=true;pending(ca,"이미지 준비 중");return;}
   if(!R){ca.clearRect(0,0,1200,800);ca.drawImage($("cvBefore"),0,0);ca.fillStyle="rgba(18,24,25,.62)";ca.fillRect(0,0,1200,800);return;}
-  if(R.img){if((S.source==="upload"||isEx())&&FRAME){const[fx,fy,fw,fh]=FRAME,i=R.img,r=Math.max(fw/i.width,fh/i.height);ca.fillStyle="#1c2427";ca.fillRect(0,0,1200,800);ca.save();ca.beginPath();ca.rect(fx,fy,fw,fh);ca.clip();ca.drawImage(i,fx+(fw-i.width*r)/2,fy+(fh-i.height*r)/2,i.width*r,i.height*r);ca.restore();}
+  if(R.img){if(isEx())coverDraw(ca,R.img,"contain");else if(S.source==="upload"&&FRAME){const[fx,fy,fw,fh]=FRAME,i=R.img,r=Math.max(fw/i.width,fh/i.height);ca.fillStyle="#1c2427";ca.fillRect(0,0,1200,800);ca.save();ca.beginPath();ca.rect(fx,fy,fw,fh);ca.clip();ca.drawImage(i,fx+(fw-i.width*r)/2,fy+(fh-i.height*r)/2,i.width*r,i.height*r);ca.restore();}
     else coverDraw(ca,R.img,false);}
   else if(S.source==="upload"&&!API.ready&&GPTS[gptKey()]&&GPTS[gptKey()][R.style]){const g=GPTS[gptKey()][R.style];Object.assign(R,{img:g,ai:true,aiSrc:"ChatGPT",checked:!!g._checked});return drawAfter();}
   else if(S.source==="upload"&&!API.ready){ca.clearRect(0,0,1200,800);ca.drawImage($("cvBefore"),0,0);ca.fillStyle="rgba(18,24,25,.72)";ca.fillRect(0,0,1200,800);ca.fillStyle="#fff";ca.textAlign="center";ca.font="600 34px 'IBM Plex Sans KR',sans-serif";ca.fillText("ChatGPT 변환 결과를 기다리는 중",600,370);ca.font="24px 'IBM Plex Sans KR',sans-serif";ca.fillText("아래 ① 변환 재료 받기 → ② ChatGPT → ③ 결과 올리기",600,420);ca.textAlign="start";return;}
@@ -1331,6 +1338,9 @@ function drawAfter(){
 }
 let busy=false;
 let API={ready:false,needsCode:false};
+/* AI 서버 주소: workers.dev에서 열면 같은 주소, GitHub Pages 등에서 열면 Cloudflare remodel-ai 서버 */
+const CF_WORKER="https://remodel-ai.ijinsol61.workers.dev";
+const API_URL=/workers\.dev$|vercel\.app$|^localhost$|^127\./.test(location.hostname)?"/api/remodel":CF_WORKER+"/api/remodel";
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 function loadImg(src){return new Promise((ok,no)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=()=>no(new Error("결과 이미지를 읽지 못했습니다."));i.src=src;});}
 function busyOn(){busy=true;$("go").disabled=true;$("busy").classList.add("on");}
@@ -1353,7 +1363,7 @@ async function run(instant){
       const mx=API.maxInput||1536,prep=prepImage(S.img,mx),planD=S.plan&&API.plan?prepImage(S.plan,mx).data:undefined,code=($("code").value||"").trim();
       const ac=new AbortController(),kill=setTimeout(()=>ac.abort(),310000);
       let r,j;
-      try{r=await fetch("/api/remodel",{method:"POST",signal:ac.signal,headers:{"Content-Type":"application/json","x-access-code":code},body:JSON.stringify({image:prep.data,plan:planD,aspect:prep.aspect,scenario:sc,style:st})});j=await r.json().catch(()=>({}));}
+      try{r=await fetch(API_URL,{method:"POST",signal:ac.signal,headers:{"Content-Type":"application/json","x-access-code":code},body:JSON.stringify({image:prep.data,plan:planD,aspect:prep.aspect,scenario:sc,style:st})});j=await r.json().catch(()=>({}));}
       finally{clearTimeout(kill);}
       if(!r.ok){const e=new Error(j.error||"AI 변환에 실패했습니다.");e.code=j.code;e.retryable=j.retryable!==false&&j.code!=="bad_code"&&j.code!=="config"&&j.code!=="quota"&&j.code!=="input_blocked";throw e;}
       const img=await loadImg(j.image);
@@ -1368,7 +1378,7 @@ async function run(instant){
       S.canRetry=aborted||!!(e&&e.retryable)||!(e&&e.code);
     }finally{clearInterval(timer);}
   }else if(SAMPLE){
-    const msgs=[["Claude가 사진을 보고 있어요",15],["벽·창·문 위치와 원근을 읽는 중",35],["가구 배치와 노후 상태를 진단하는 중",60],["리모델링 기준을 정리하는 중",80]];
+    const msgs=[["Claude가 사진을 보고 있어요",15],["벽·창·문 위치와 원근을 읽는 중",35],["가구 배치와 생활 동선을 진단하는 중",60],["리모델링 기준을 정리하는 중",80]];
     let k=0;setBusy(msgs[0][0],msgs[0][1]);
     const timer=setInterval(()=>{k=Math.min(k+1,msgs.length-1);setBusy(msgs[k][0],msgs[k][1]);},3500);
     try{
@@ -1404,19 +1414,19 @@ function curEx(){const id=String(S.source).slice(3);return id==="local"?S.exLoca
 function imgOnce(src){return EXIMG[src]||(EXIMG[src]=loadImg(src));}
 async function showExample(){
   const ex=curEx();if(!ex)return;stopReal();
-  try{S.exBefore=ex.beforeImg||await imgOnce(ex.before);}catch(e){S.result=null;S.error="예시 원본 이미지가 아직 없습니다. GitHub의 examples 폴더에 "+String(ex.before).replace("examples/","")+" 파일을 올려 주세요.";S.canRetry=false;refresh();return;}
+  try{S.exBefore=ex.beforeImg||await imgOnce(ex.before);}catch(e){S.exBefore=null;}
   if(ex.scenario&&SCENARIOS[ex.scenario]){S.scenario=ex.scenario;}syncRadios();
   const src=ex.after&&ex.after[S.style];let img=null;
   try{img=ex.afterImg&&ex.afterImg[S.style]||(src?await imgOnce(src):null);}catch(e){img=null;}
-  S.error=img?"":src?`'${STYLES[S.style].name}' 결과 파일이 아직 없습니다. GitHub의 examples 폴더에 ${src.replace("examples/","")} 파일을 올려 주세요.`:`이 예시에는 '${STYLES[S.style].name}' 결과가 없습니다.`;S.canRetry=false;
+  S.error="";S.canRetry=false;
   S.result=img?{scenario:S.scenario,style:S.style,img,ai:true,preset:true,variant:ex.variant,exSrc:ex.source||"ChatGPT"}:null;
   drawBefore();drawAfter();refresh();runQuad();
 }
 function buildExamples(){
   const box_=$("exList");
   EXS.forEach(ex=>{const b=document.createElement("button");b.type="button";b.className="sample";b.dataset.k="ex:"+ex.id;
-    const c=document.createElement("canvas");c.width=240;c.height=160;imgOnce(ex.before).then(i=>{const x=c.getContext("2d");const r=Math.max(240/i.width,160/i.height);x.drawImage(i,(240-i.width*r)/2,(160-i.height*r)/2,i.width*r,i.height*r);}).catch(()=>{});
-    const sp=document.createElement("span");sp.textContent=ex.title;b.append(c,sp);
+    const c=document.createElement("canvas");c.width=240;c.height=160;imgOnce(ex.before).then(i=>{const x=c.getContext("2d");const r=Math.max(240/i.width,160/i.height);x.drawImage(i,(240-i.width*r)/2,(160-i.height*r)/2,i.width*r,i.height*r);}).catch(()=>{const x=c.getContext("2d");x.fillStyle="#dfe3df";x.fillRect(0,0,240,160);x.fillStyle="#6b7679";x.font="600 20px sans-serif";x.textAlign="center";x.fillText("이미지 준비 중",120,86);});
+    const sp=document.createElement("span");sp.textContent=ex.title;const sub=document.createElement("small");sub.className="exsub";sub.textContent=SCENARIOS[ex.scenario]?SCENARIOS[ex.scenario].name:"";sp.append(sub);b.append(c,sp);
     b.addEventListener("click",()=>{S.source="ex:"+ex.id;S.result=null;S.error="";showExample();});box_.append(b);});
   if(!EXS.length){const p=document.createElement("p");p.className="hint";p.textContent="아직 등록된 예시가 없습니다. ChatGPT로 만든 이미지를 받으면 여기에 추가됩니다.";box_.append(p);}
   $("exBeforeFile").addEventListener("change",async e=>{const f=e.target.files[0];e.target.value="";if(!f)return;const i=await loadImg(URL.createObjectURL(f));S.exLocal={id:"local",title:"직접 불러온 예시",before:"",beforeImg:i,afterImg:{},after:{},source:"ChatGPT"};S.source="ex:local";showExample();});
@@ -1453,7 +1463,7 @@ function engName(){return API.engine==="cloudflare"?"Cloudflare "+(API.model||"F
 async function checkApi(){
   try{
     if(location.protocol==="file:")throw 0;
-    const r=await fetch("/api/remodel",{method:"GET",cache:"no-store"});
+    const r=await fetch(API_URL,{method:"GET",cache:"no-store"});
     if(!r.ok)throw 0;
     const j=await r.json();
     API={ready:!!j.ready,needsCode:!!j.needsCode,model:j.model,engine:j.engine||"openai",maxInput:j.maxInput,plan:!!j.plan};

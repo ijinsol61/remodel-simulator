@@ -11,12 +11,7 @@
 // =====================================================================
 
 const SCENARIOS = {
-  old: {
-    name: "노후주택 리모델링",
-    desc: "노후 마감 교체와 안전한 동선 중심",
-    prompt: "This is a room in an old Korean house being renovated: replace stained or discoloured wallpaper, worn flooring, old fluorescent lights and old moldings; keep a wide clear route of about 1.2 m from the door and a step-free floor",
-    row: ["노후 마감 정리", "얼룩·변색 벽면 재마감, 바닥·걸레받이·몰딩 교체, 형광등 철거, 문턱 없는 바닥과 넓은 동선"]
-  },
+  // 노후주택 리모델링 시나리오는 출품 범위에서 제외 (2026-11-02, 1인가구 소형공간 전용)
   single: {
     name: "1인가구 소형공간 활용",
     desc: "수면·작업·수납·식사를 작은 방 안에서 해결",
@@ -90,5 +85,26 @@ function buildRenderPrompt(scenario, style) {
   return `${RENDER_BASE}.\n${SCENARIOS[scenario].prompt}.\n${STYLES[style].prompt}.\nDo not include: ${neg}.`;
 }
 
-globalThis.REMODEL = { SCENARIOS, STYLES, BASE_PROMPT, NEG_PROMPT, NEG_HANOK, buildPrompt, buildRenderPrompt };
+
+// ---------------------------------------------------------------------
+//  짧은 지시문 (Cloudflare FLUX.2 klein용: 이 모델은 약 512토큰까지만 읽습니다)
+//  같은 v5 기준을 압축한 것. 금지어를 나열하면 오히려 그려 넣는 모델이라 "있어야 할 것"만 씁니다.
+// ---------------------------------------------------------------------
+const BASE_SHORT =
+  "Photorealistic remodeling proposal of the room in image 1. Keep the exact camera position, lens, framing and aspect ratio, the real room size, wall positions, window and door openings and ceiling height. Redesign furniture, finishes, lighting, the entrance door and window treatment for the concept below; clear away clutter, cables and personal items";
+const SHORT = {
+  nordic: "Scandinavian concept, varied natural palette: warm ivory walls with one sage-green wall, pale matte oak floor. Slim light-oak daybed on legs with ivory bedding, one ochre and one dusty-blue cushion. Small chair-height light-oak drop-leaf dining table with one matte cobalt-blue wooden chair. Separate small study desk with its own chair near the window. Compact warm-white and oak clothes cupboard. Entrance door replaced by a matte terracotta slab with slim oak jamb and short brushed-nickel lever. Plain linen sheer curtain, plain wool rug, one or two plants, soft-white pendant over the dining spot, reading lamp, clean daylight",
+  minimal: "Minimalist concept, limited palette of warm grey, matte ivory, pale ash and a little charcoal, generous clear floor. Continuous wall of flush full-height closed storage in matte warm greige with concealed handles; a chair-height fold-down dining panel built into it, shown open with one light charcoal folding chair. Single bed on a low storage plinth. Slim wall-mounted study ledge with a small task light. Entrance door replaced by a flush matte warm-greige slab with a short matte black lever. Very slim window frame with a plain roller blind. Flat plain walls, pale warm-grey matte floor, slim linear ceiling luminaire, plain white bedding with a charcoal throw",
+  hanok: "Contemporary Korean concept with a low floor-seated living horizon, a practical modern room. Low timber bed with plain wooden head panel, white bedding and a folded muted-indigo quilt. Low writing desk with a thin floor cushion near the window. Small movable Korean soban with simple legs, one floor cushion and plain white ceramic bowls. Slim timber clothes cabinet with small dark metal pulls. Warm off-white hanji-textured walls, medium natural brown timber floor, slim timber skirting. Window fitted with thin Korean timber lattice inner shutters with translucent paper-like panels, one leaf partly open. Entrance door replaced by a medium-brown wood veneer slab with a small dark-bronze lever. Slim modern flush ceiling light, concealed linear glow, small dark-metal LED desk light, neutral soft daylight"
+};
+const SC_SHORT = {
+  single: "Small one-person room: sleeping, studying, storage and a small meal all fit, with a clear walking route from the door"
+};
+const END_SHORT = "The photo shows only the quiet interior: plain unmarked surfaces, plain fabrics, generic unbranded furniture, soft natural light";
+function buildShortPrompt(scenario, style, hasPlan) {
+  const plan = hasPlan ? ". Image 2 is the floor plan of this same room: place the bed, desk, storage and dining spot where the plan shows them, seen from the camera of image 1" : "";
+  return `${BASE_SHORT}. ${SC_SHORT[scenario]}. ${SHORT[style]}${plan}. ${END_SHORT}.`;
+}
+
+globalThis.REMODEL = { SCENARIOS, STYLES, BASE_PROMPT, NEG_PROMPT, NEG_HANOK, buildPrompt, buildRenderPrompt, buildShortPrompt };
 })();
