@@ -167,7 +167,7 @@ footer{font-size:12.5px;color:var(--muted);border-top:1px solid var(--line);padd
         </label>
         <p class="hint" id="photoHint">사람, 가족사진, 주소·송장이 보이지 않는 실내 사진을 올려 주세요. 정면에서 수평으로 찍은 사진이 가장 정확합니다. 사진은 이 브라우저 안에서만 처리됩니다.</p>
         <div class="exbox">
-          <p class="lbl"><b>사전 생성 예시</b> · ChatGPT로 미리 만든 결과 (실시간 생성 아님)</p>
+          <p class="lbl"><b>AI 리모델링 시안 · 사전 생성 예시</b> (실시간 생성 아님)</p>
           <div class="samples" id="exList"></div>
           <details class="exlocal"><summary>ChatGPT 결과 이미지로 비교 화면 점검</summary>
             <p class="hint">원본 사진과, 지금 고른 스타일로 ChatGPT에서 만든 결과를 차례로 고르면 '사전 생성 예시'로 표시됩니다. 서버로 보내지 않습니다.</p>
@@ -190,6 +190,12 @@ footer{font-size:12.5px;color:var(--muted);border-top:1px solid var(--line);padd
       <div class="codebox" id="codebox" hidden>
         <label for="code">시연 코드</label>
         <input id="code" type="password" autocomplete="off" placeholder="팀에서 정한 코드">
+      </div>
+      <div class="codebox" id="planbox" hidden>
+        <label for="planFile">평면도 (선택)</label>
+        <input id="planFile" type="file" accept="image/png,image/jpeg,image/webp">
+        <p class="hint" id="planHint">이 방의 평면도(가구 배치 표시)를 함께 넣으면 그 배치를 따라 그립니다. 손그림 사진이나 캡처도 됩니다. 글자는 결과에 옮겨지지 않게 지시합니다.</p>
+        <button type="button" class="save" id="planClear" hidden>평면도 빼기</button>
       </div>
       <button class="go" id="go" type="button">리모델링 이미지 만들기</button>
       <button class="save" id="save" type="button" disabled>비교 이미지 저장</button>
@@ -1204,7 +1210,7 @@ async function runQuad(){
       else{const ck=S.img?S.img.src+"|"+S.scenario:"";img=(APIC[ck]&&APIC[ck][st])||(GPTS[ck]&&GPTS[ck][st]);}
       c.fillStyle="#1c2427";c.fillRect(0,0,1200,800);
       const fromApi=!isEx()&&APIC[S.img?S.img.src+"|"+S.scenario:""]&&APIC[S.img.src+"|"+S.scenario][st]===img;
-      if(img){coverDraw(c,img,true);$("qs"+(i+1)).textContent=isEx()?"AI 리모델링 시안 · 사전 생성 예시":fromApi?"AI 생성 · OpenAI":"AI 생성 · ChatGPT";}
+      if(img){coverDraw(c,img,true);$("qs"+(i+1)).textContent=isEx()?"AI 리모델링 시안 · 사전 생성 예시":fromApi?"AI 생성 · "+engName():"AI 생성 · ChatGPT";}
       else{c.fillStyle="#9aa5a8";c.font="600 40px sans-serif";c.textAlign="center";c.fillText(isEx()?"이 스타일 예시 없음":"아직 변환하지 않음",600,400);c.textAlign="start";$("qs"+(i+1)).textContent=isEx()?"없음":API.ready?"스타일을 고르고 [만들기]":"[변환 재료] → ChatGPT → [결과 올리기]";}}
     $("qNote").textContent=isEx()?"AI 리모델링 시안 · 사전 생성 예시"+(curEx()&&curEx().variant==="B"?" · Claude 원문 1회 적용 비교 (최종안 아님)":"")+" · 실시간 생성 아님":"이 사진으로 만든 스타일별 결과를 모았습니다. 비어 있는 칸은 아래 버튼으로 채울 수 있습니다.";
     document.querySelectorAll(".qact").forEach(e=>e.hidden=isEx()||!!API.ready);$("qSave").disabled=false;return;}
@@ -1233,7 +1239,7 @@ function saveQuad(){
   const x=c.getContext("2d");x.fillStyle="#fafbf8";x.fillRect(0,0,c.width,c.height);x.fillStyle="#1c2427";x.font="600 30px 'IBM Plex Sans KR',sans-serif";
   x.fillText((isEx()&&curEx()?curEx().title:"원본과 3가지 스타일 비교")+" · "+SCENARIOS[R.scenario].name+" · 같은 시점",0,44);
   ["원본 사진","북유럽","미니멀","한옥모던"].forEach((t,i)=>{const ox=(i%2)*(w+g),oy=top+Math.floor(i/2)*(h+56);x.drawImage($("q"+i),ox,oy);x.font="600 26px 'IBM Plex Sans KR',sans-serif";x.fillStyle="#1c2427";x.fillText(t+(i?" · "+$("qs"+i).textContent:""),ox,oy+h+36);});
-  x.font="22px 'IBM Plex Sans KR',sans-serif";x.fillStyle="#5b676a";const anyAI=[1,2,3].some(i=>$("qs"+i).textContent.startsWith("AI"));x.fillText(isEx()?"AI 리모델링 시안 · 사전 생성 예시"+(curEx()&&curEx().variant==="B"?" (Claude 원문 1회 적용 비교)":"")+" · 실시간 생성 결과 아님 · 참고용, 실제 시공은 전문가 검토 필요":(API.ready&&S.source==="upload")?"AI 생성 이미지 (OpenAI 이미지 편집, 안전 검사 통과분만 표시) · 참고용, 실제 시공은 전문가 검토 필요":(anyAI?"AI 생성 이미지 포함 (Gemini로 실사화, 배치는 3D 모델 기준) · ":"")+(R.engine==="claude"?"AI 구조 분석(Claude) 기반 3D · 참고용, 실제 시공은 전문가 검토 필요":"예시 공간 3D · 광선 추적 렌더 · 참고용"),0,c.height-14);
+  x.font="22px 'IBM Plex Sans KR',sans-serif";x.fillStyle="#5b676a";const anyAI=[1,2,3].some(i=>$("qs"+i).textContent.startsWith("AI"));x.fillText(isEx()?"AI 리모델링 시안 · 사전 생성 예시"+(curEx()&&curEx().variant==="B"?" (Claude 원문 1회 적용 비교)":"")+" · 실시간 생성 결과 아님 · 참고용, 실제 시공은 전문가 검토 필요":(API.ready&&S.source==="upload")?"AI 생성 이미지 ("+engName()+" 이미지 편집, 안전 검사 통과분만 표시) · 참고용, 실제 시공은 전문가 검토 필요":(anyAI?"AI 생성 이미지 포함 (Gemini로 실사화, 배치는 3D 모델 기준) · ":"")+(R.engine==="claude"?"AI 구조 분석(Claude) 기반 3D · 참고용, 실제 시공은 전문가 검토 필요":"예시 공간 3D · 광선 추적 렌더 · 참고용"),0,c.height-14);
   c.toBlob(b=>saveBlob(b,"리모델링_4안비교_"+R.scenario+".png"),"image/png");
 }
 
@@ -1243,6 +1249,7 @@ const $=id=>document.getElementById(id);
 const cb=$("cvBefore").getContext("2d"),ca=$("cvAfter").getContext("2d",{willReadFrequently:true});
 
 function buildSamples(){
+  if(Array.isArray(globalThis.EXAMPLES)&&globalThis.EXAMPLES.length){$("samples").hidden=true;return;}
   const box_=$("samples");
   Object.keys(SAMPLES).forEach(k=>{
     const b=document.createElement("button");b.type="button";b.className="sample";b.dataset.k=k;b.id="sample-"+k;
@@ -1265,7 +1272,7 @@ function buildOpts(el,data,name){
 }
 function syncRadios(){$("scenario-"+S.scenario).checked=true;$("style-"+S.style).checked=true;}
 
-function promptText(){return buildPrompt(S.scenario,S.style);}
+function promptText(){return API.ready&&API.engine==="cloudflare"&&globalThis.REMODEL.buildShortPrompt?globalThis.REMODEL.buildShortPrompt(S.scenario,S.style,!!(S.plan&&API.plan)):buildPrompt(S.scenario,S.style);}
 function refresh(){
   document.querySelectorAll(".sample").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.k===S.source)));
   $("drop").classList.toggle("on",S.source==="upload");
@@ -1343,14 +1350,14 @@ async function run(instant){
     const timer=setInterval(()=>{const sec=Math.round((Date.now()-t0)/1000),st=steps.filter(x=>sec>=x[0]).pop();setBusy(`${st[1]} · ${sec}초`,Math.min(92,8+sec*1.2));},500);
     setBusy(steps[0][1],5);
     try{
-      const prep=prepImage(S.img),code=($("code").value||"").trim();
+      const mx=API.maxInput||1536,prep=prepImage(S.img,mx),planD=S.plan&&API.plan?prepImage(S.plan,mx).data:undefined,code=($("code").value||"").trim();
       const ac=new AbortController(),kill=setTimeout(()=>ac.abort(),310000);
       let r,j;
-      try{r=await fetch("/api/remodel",{method:"POST",signal:ac.signal,headers:{"Content-Type":"application/json","x-access-code":code},body:JSON.stringify({image:prep.data,aspect:prep.aspect,scenario:sc,style:st})});j=await r.json().catch(()=>({}));}
+      try{r=await fetch("/api/remodel",{method:"POST",signal:ac.signal,headers:{"Content-Type":"application/json","x-access-code":code},body:JSON.stringify({image:prep.data,plan:planD,aspect:prep.aspect,scenario:sc,style:st})});j=await r.json().catch(()=>({}));}
       finally{clearTimeout(kill);}
       if(!r.ok){const e=new Error(j.error||"AI 변환에 실패했습니다.");e.code=j.code;e.retryable=j.retryable!==false&&j.code!=="bad_code"&&j.code!=="config"&&j.code!=="quota"&&j.code!=="input_blocked";throw e;}
       const img=await loadImg(j.image);
-      S.result={scenario:sc,style:st,img,ai:true,aiSrc:"OpenAI "+(j.model||""),secs:Math.round((Date.now()-t0)/1000)};
+      S.result={scenario:sc,style:st,img,ai:true,aiSrc:engName()+(j.plan?" · 평면도 반영":""),secs:Math.round((Date.now()-t0)/1000)};
       const ck=S.img.src+"|"+sc;(APIC[ck]=APIC[ck]||{})[st]=img;
       S.error="";
     }catch(e){
@@ -1384,8 +1391,8 @@ async function run(instant){
 }
 let SAMPLE=null;const APIC={};
 /* 원본 비율 그대로, 긴 변 1536px JPEG로 줄여서 서버로 (Vercel 4.5MB 한도 안쪽) */
-function prepImage(img){
-  const w=img.naturalWidth||img.width,h=img.naturalHeight||img.height,k=Math.min(1,1536/Math.max(w,h));
+function prepImage(img,max){
+  const w=img.naturalWidth||img.width,h=img.naturalHeight||img.height,k=Math.min(1,(max||1536)/Math.max(w,h));
   const c=document.createElement("canvas");c.width=Math.round(w*k);c.height=Math.round(h*k);c.getContext("2d").drawImage(img,0,0,c.width,c.height);
   let q=.9,d=c.toDataURL("image/jpeg",q);while(d.length>4e6&&q>.5){q-=.1;d=c.toDataURL("image/jpeg",q);}
   return{data:d,aspect:w/h};
@@ -1415,6 +1422,10 @@ function buildExamples(){
   $("exBeforeFile").addEventListener("change",async e=>{const f=e.target.files[0];e.target.value="";if(!f)return;const i=await loadImg(URL.createObjectURL(f));S.exLocal={id:"local",title:"직접 불러온 예시",before:"",beforeImg:i,afterImg:{},after:{},source:"ChatGPT"};S.source="ex:local";showExample();});
   $("exAfterFile").addEventListener("change",async e=>{const f=e.target.files[0];e.target.value="";if(!f)return;if(!S.exLocal){S.error="먼저 ① 원본 사진을 골라 주세요.";S.canRetry=false;refresh();return;}const i=await loadImg(URL.createObjectURL(f));S.exLocal.afterImg[S.style]=i;S.source="ex:local";showExample();});
 }
+function initPlan(){
+  $("planFile").addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;try{S.plan=await loadImg(URL.createObjectURL(f));$("planClear").hidden=false;$("planHint").textContent="평면도 적용됨 · 다음 변환부터 이 배치를 따릅니다.";}catch(_){S.plan=null;}});
+  $("planClear").addEventListener("click",()=>{S.plan=null;$("planFile").value="";$("planClear").hidden=true;$("planHint").textContent="평면도를 뺐습니다. 사진만으로 변환합니다.";});
+}
 function extractJSON(t){const a=t.indexOf("{"),b=t.lastIndexOf("}");if(a<0||b<a)throw new Error("bad json");return JSON.parse(t.slice(a,b+1));}
 async function askClaude(prompt,blob){
   const opts={images:[blob],modelTier:"default"};
@@ -1433,20 +1444,21 @@ async function initClaude(tries){
 }
 function updatePill(){
   $("aikit").hidden=!!API.ready;document.querySelectorAll(".qact").forEach(e=>e.hidden=!!API.ready);
-  if(API.ready){$("promptLbl").textContent="아래 문장이 업로드한 원본 사진과 함께 서버를 거쳐 OpenAI 이미지 편집 API로 전달됩니다. 문장은 prompts.js 파일에서 고칠 수 있습니다.";$("qNote").textContent="스타일마다 한 번씩 [리모델링 이미지 만들기]를 누른 뒤 이 버튼을 누르면 현재 사진과 세 가지 스타일 결과를 나란히 모읍니다.";}
+  if(API.ready){$("promptLbl").textContent="아래 문장이 업로드한 원본 사진과 함께 서버를 거쳐 "+engName()+" 이미지 편집 AI로 전달됩니다. 문장은 prompts.js 파일에서 고칠 수 있습니다.";$("qNote").textContent="스타일마다 한 번씩 [리모델링 이미지 만들기]를 누른 뒤 이 버튼을 누르면 현재 사진과 세 가지 스타일 결과를 나란히 모읍니다.";}
   refresh();
-  if(API.ready)$("photoHint").textContent="사람, 가족사진, 주소·송장이 보이지 않는 실내 사진을 올려 주세요. 정면에서 수평으로 찍은 사진이 가장 정확합니다. 사진은 변환을 위해 OpenAI로 전송되며, 이 사이트 서버에는 저장하지 않습니다.";
-  $("modePill").textContent=API.ready?"AI 연결됨 · OpenAI "+(API.model||""):SAMPLE?"AI 연결됨 · Claude 구조 분석":"시연용 · AI 연결 전";
+  if(API.ready)$("photoHint").textContent="사람, 가족사진, 주소·송장이 보이지 않는 실내 사진을 올려 주세요. 정면에서 수평으로 찍은 사진이 가장 정확합니다. 사진은 변환을 위해 "+(API.engine==="cloudflare"?"Cloudflare Workers AI":"OpenAI")+"로 전송되며, 이 사이트 서버에는 저장하지 않습니다.";
+  $("modePill").textContent=API.ready?"AI 연결됨 · "+engName():SAMPLE?"AI 연결됨 · Claude 구조 분석":"시연용 · AI 연결 전";
 }
+function engName(){return API.engine==="cloudflare"?"Cloudflare "+(API.model||"FLUX.2"):"OpenAI "+(API.model||"");}
 async function checkApi(){
   try{
     if(location.protocol==="file:")throw 0;
     const r=await fetch("/api/remodel",{method:"GET",cache:"no-store"});
     if(!r.ok)throw 0;
     const j=await r.json();
-    API={ready:!!j.ready,needsCode:!!j.needsCode,model:j.model};
+    API={ready:!!j.ready,needsCode:!!j.needsCode,model:j.model,engine:j.engine||"openai",maxInput:j.maxInput,plan:!!j.plan};
   }catch(e){API={ready:false,needsCode:false};}
-  $("codebox").hidden=!(API.ready&&API.needsCode);
+  $("codebox").hidden=!(API.ready&&API.needsCode);$("planbox").hidden=!(API.ready&&API.plan);
   updatePill();
 }
 function saveCompare(){
@@ -1494,7 +1506,8 @@ $("copy").addEventListener("click",async()=>{
 });
 
 buildSamples();buildExamples();buildOpts($("scenarios"),SCENARIOS,"scenario");buildOpts($("styles"),STYLES,"style");
-syncRadios();run(true);checkApi();initClaude(0);
+if(EXS.length){S.source="ex:"+EXS[0].id;S.style="nordic";S.scenario=EXS[0].scenario||"single";syncRadios();showExample();}else{syncRadios();run(true);}
+initPlan();checkApi();initClaude(0);
 $("guideOn").addEventListener("change",refresh);
 $("qGo").addEventListener("click",runQuad);
 /* AI 실사화 (무료 · Gemini 앱): 3D 렌더 + 문장 내보내기, 결과 받아오기 */
