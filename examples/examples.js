@@ -10,7 +10,7 @@
 // =====================================================================
 
 // 사진 파일을 같은 이름으로 바꿔 올렸을 때 이 값을 바꾸면 브라우저가 새 사진을 불러옵니다
-globalThis.EXAMPLES_VERSION = "20261103-0220";
+globalThis.EXAMPLES_VERSION = "20261103-0216";
 
 globalThis.PREGENERATED_EXAMPLES = [
   {
@@ -65,8 +65,8 @@ globalThis.PREGENERATED_EXAMPLES = [
     ],
     styles: {
       nordic:  { image: "examples/room3_kitchen_nordic.png", summary: "밝은 목재와 부드러운 색채, 실용적인 수납과 따뜻한 조명을 적용해 매우 좁은 주방을 편안하게 정리한 북유럽식 소형주방 시안." },
-      minimal: { image: "examples/room3_kitchen_modern.png", summary: "천장까지 연결된 통합 수납과 정돈된 설비, 직선형 수전과 작업 조명을 적용해 좁은 주방의 효율을 높인 현대식 소형주방 시안." },
-      hanok:   { image: "examples/room3_kitchen_hanok.png",  summary: "목재 짜임과 창호 비례, 미색 마감과 절제된 브론즈 설비를 활용해 한국 한옥의 공간 언어를 현대 소형주방에 재해석한 시안." }
+      minimal: { image: "examples/미니멀 베이지 톤 주방 인테리어.png", summary: "천장까지 연결된 통합 수납과 정돈된 설비, 직선형 수전과 작업 조명을 적용해 좁은 주방의 효율을 높인 현대식 소형주방 시안." },
+      hanok:   { image: "examples/따뜻한 우드톤 미니멀 주방 nook.png",  summary: "목재 짜임과 창호 비례, 미색 마감과 절제된 브론즈 설비를 활용해 한국 한옥의 공간 언어를 현대 소형주방에 재해석한 시안." }
     }
   }
   // 네 번째 사례: 준비되면 위와 같은 형식으로 추가
@@ -77,7 +77,7 @@ globalThis.EXAMPLES = globalThis.PREGENERATED_EXAMPLES
   .filter(e => e.status === "ready")
   .map(e => ({
     id: e.id, title: e.title, scenario: e.scenario, type: e.type, variant: "A", source: "ChatGPT",
-    before: e.original, beforeLabel: e.originalLabel, conditions: e.conditions,
-    after: Object.fromEntries(Object.entries(e.styles).map(([k, v]) => [k, v.image])),
+    before: encodeURI(e.original), beforeLabel: e.originalLabel, conditions: e.conditions,
+    after: Object.fromEntries(Object.entries(e.styles).map(([k, v]) => [k, encodeURI(v.image)])),
     summary: Object.fromEntries(Object.entries(e.styles).map(([k, v]) => [k, v.summary]))
   }));
