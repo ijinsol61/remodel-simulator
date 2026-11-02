@@ -8,6 +8,9 @@
 //  이미지가 아직 안 올라간 경우 화면에 "이미지 준비 중"으로 표시됩니다.
 //  scenario 값: "single" = 1인가구 소형공간 활용 (노후주택 시나리오는 출품 범위에서 제외)
 // =====================================================================
+// 사진 파일을 같은 이름으로 바꿔 올렸을 때 이 값을 바꾸면 브라우저가 새 사진을 불러옵니다
+globalThis.EXAMPLES_VERSION = "20261102-2345";
+
 globalThis.PREGENERATED_EXAMPLES = [
   {
     id: "room1-bedroom",
@@ -15,7 +18,7 @@ globalThis.PREGENERATED_EXAMPLES = [
     scenario: "single",
     type: "bedroom",
     status: "ready",
-    original: "examples/room1_before.jpg",
+    original: "examples/acc596eb-ae38-4b4d-aafc-f8e4b759016d.png",
     // 직접 촬영한 원본에서 개인 물품만 정리 보정한 사진 (방 구조·시점·마감은 그대로)
     originalLabel: "원본 사진 (개인 물품 정리 보정)",
     styles: {
