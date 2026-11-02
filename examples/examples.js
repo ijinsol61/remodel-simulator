@@ -14,7 +14,7 @@ globalThis.EXAMPLES_VERSION = "20261102-2345";
 globalThis.PREGENERATED_EXAMPLES = [
   {
     id: "room1-bedroom",
-    title: "1인 가구 소형 침실",
+    title: "1인 가구 원룸",
     scenario: "single",
     type: "bedroom",
     status: "ready",
