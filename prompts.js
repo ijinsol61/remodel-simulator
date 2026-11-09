@@ -27,7 +27,7 @@ const STYLES = {
     sw: ["#f2eee5", "#a9b7a0", "#af654d", "#2851a3"],
     wall: "아이보리 벽 + 세이지그린 포인트 벽",
     floor: "밝은 오크 무광 마루",
-    light: "식사 자리 펜던트, 독서등, 책상 조명",
+    light: "천장 중앙 원형 등 + 책상 스탠드 1개 + 침대 머리 독서등",
     window: "밝은 창틀, 린넨 쉬어 커튼",
     door: "테라코타색 문, 밝은 오크 문틀, 금속 레버",
     furn: "다리 있는 오크 싱글 침대, 서랍 달린 120cm 오크 책상 + 등받이 있는 쿠션 의자, 오크·밝은색 옷장",
@@ -40,7 +40,7 @@ const STYLES = {
     sw: ["#efeee9", "#cfc8bd", "#d9d4cb", "#3c3c3a"],
     wall: "무광 아이보리·따뜻한 회색, 걸레받이 최소화",
     floor: "연한 웜그레이 무광 바닥 또는 저대비 애쉬 광폭 마루",
-    light: "선형 천장등 + 수납부·작업 선반 조명",
+    light: "천장 중앙 직선형 등(벽과 나란히) + 책상 스탠드 1개 + 침대 머리 독서등",
     window: "얇은 창틀, 무지 롤 블라인드",
     door: "옅은 애쉬 목재 문, 차콜 문틀, 검정 레버 (수납장과 다른 색으로 구분)",
     furn: "낮은 수납 받침 일체형 침대, 닫힌 수납벽, 서랍 달린 120cm 붙박이 책상 + 팔걸이 있는 작업 의자",
@@ -53,7 +53,7 @@ const STYLES = {
     sw: ["#f1ebdf", "#9a6b45", "#6b4a2e", "#33415c"],
     wall: "미색 한지 느낌 벽 마감",
     floor: "중간 갈색 목재 마루, 얇은 목재 걸레받이",
-    light: "얇은 현대식 천장등, 간접조명, 금속 작업등 (종이등 없음)",
+    light: "천장 중앙 얇은 사각 등 + 천장 가장자리 간접조명 + 책상 스탠드 1개 + 침대 머리 독서등 (종이등 없음)",
     window: "얇은 목재 살 내창(세로살 + 간격 둔 가로띠), 종이 느낌 반투명 판",
     door: "중간 갈색 목재 문, 더 진한 목재 문틀, 어두운 금속 레버",
     furn: "낮은 목재 침상, 서랍 달린 110cm 좌식 책상 + 등받이 좌식 의자, 목재 옷장",
@@ -99,12 +99,12 @@ const BASE_SHORT =
   "Photorealistic remodeling proposal of the room in image 1, from the same camera position, lens, framing and aspect ratio. Keep the real room size, walls, ceiling height and every window and door opening exactly where they are. Redesign furniture, finishes, lighting and window treatment; remove clutter and personal items";
 // 1인가구 방: 실제로 살 수 있는 배치
 const SC_SHORT = {
-  single: "Livable plan for one person, each item in its own floor zone with nothing overlapping: a single bed against a solid wall away from the door; one wardrobe on a wall without a door or window, its doors free to open; a desk beside or under the window for daylight, with room to pull out the chair, also used for meals; a clear 80 cm path from the door into the room. Fewer, well-sized pieces rather than filling every wall"
+  single: "Livable plan for one person, each item in its own floor zone with nothing overlapping: a single bed against a solid wall away from the door; one wardrobe on a wall without a door or window, its doors free to open; a desk beside or under the window for daylight, with room to pull out the chair, also used for meals; a clear 80 cm path from the door; few, well-sized pieces. Lighting: one main ceiling light centred on the ceiling and square to the walls, exactly one lamp on the desk, one small reading light at the bed head; no other lamps"
 };
 const SHORT = {
-  nordic: "Scandinavian concept: warm ivory walls with one sage-green wall, pale matte oak floor, plain linen sheer curtain, plain wool rug, one or two plants. Light-oak single bed on legs, ivory bedding with one ochre and one dusty-blue cushion. Freestanding light-oak desk on four legs, 120 cm wide, with a drawer unit and a desk lamp, and a padded cobalt-blue office chair with a high backrest on a five-star caster base. Freestanding warm-white and oak wardrobe with small wood pulls. Soft-white pendant over the desk, reading lamp, clean daylight",
-  minimal: "Minimalist concept in warm grey, matte ivory, pale ash and a little charcoal, generous clear floor. One run of flush full-height warm-greige wardrobe with concealed handles, ending well clear of the door. Single bed on a low storage plinth, white bedding and a charcoal throw. Freestanding pale-ash desk on the floor, 120 cm wide, with a three-drawer pedestal and a slim task lamp, and a padded charcoal office chair with a high backrest, armrests and a five-star caster base. Plain roller blind, flat plain walls, pale warm-grey matte floor, slim linear ceiling light",
-  hanok: "Contemporary Korean concept with a low floor-seated living horizon, practical and modern, not Japanese. Low timber bed with a plain wooden head panel, white bedding and a folded muted-indigo quilt. Solid low timber writing desk on the floor by the window, 110 cm wide with a drawer, and a padded floor chair with a tall backrest; a small movable soban with white ceramic bowls. Timber wardrobe with small dark-bronze pulls. Off-white hanji-textured walls, medium brown timber floor, thin timber lattice inner shutters with paper-like panels at the window. Slim flush ceiling light, concealed linear glow, small dark-metal desk lamp"
+  nordic: "Scandinavian concept: warm ivory walls with one sage-green wall, pale matte oak floor, plain linen sheer curtain, plain wool rug, one or two plants. Light-oak single bed on legs, ivory bedding with one ochre and one dusty-blue cushion. Freestanding light-oak desk on four legs, 120 cm wide, with a drawer unit, and a padded cobalt-blue office chair with a high backrest on a five-star caster base. Freestanding warm-white and oak wardrobe with small wood pulls. Main light: a soft-white round flush ceiling light; clean daylight",
+  minimal: "Minimalist concept in warm grey, matte ivory, pale ash and a little charcoal, generous clear floor. One run of flush full-height warm-greige wardrobe with concealed handles, ending well clear of the door. Single bed on a low storage plinth, white bedding and a charcoal throw. Freestanding pale-ash desk on the floor, 120 cm wide, with a three-drawer pedestal, and a padded charcoal office chair with a high backrest, armrests and a five-star caster base. Plain roller blind, flat plain walls, pale warm-grey matte floor. Main light: a slim rectangular linear ceiling light running straight along the room's length",
+  hanok: "Contemporary Korean concept, low floor-seated living, practical and modern, not Japanese. Low timber bed with a plain wooden head panel, white bedding and a folded muted-indigo quilt. Solid low timber writing desk on the floor by the window, 110 cm wide with a drawer, and a padded floor chair with a tall backrest; a small movable soban with white ceramic bowls. Timber wardrobe with small dark-bronze pulls. Off-white hanji-textured walls, medium brown timber floor, thin timber lattice inner shutters with paper-like panels at the window. Main light: a slim square flush timber-edged ceiling light, plus a soft concealed glow along the ceiling edge"
 };
 const END_SHORT = "Plain unmarked surfaces, generic unbranded furniture, soft natural light";
 
@@ -160,6 +160,6 @@ function buildShortPrompt(scenario, style, hasPlan, opts) {
 }
 
 // 지시문 버전: 서버 주소(/api/remodel)에 표시되어 배포 여부를 확인할 수 있음
-const PROMPT_VERSION = "20261110-desk3";
+const PROMPT_VERSION = "20261110-light4";
 globalThis.REMODEL = { PROMPT_VERSION, SCENARIOS, STYLES, ROOMS, DOORS, BASE_PROMPT, NEG_PROMPT, NEG_HANOK, buildPrompt, buildRenderPrompt, buildShortPrompt, doorClause };
 })();
