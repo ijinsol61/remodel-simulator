@@ -66,7 +66,7 @@ async function runAI(env, model, makeInput, label) {
 // 비전 모델로 사진 내용 점검. 점검을 못 하면 안전 쪽(표시 안 함)으로 처리
 const CHECK_PROMPT = 'Inspect this interior image. Answer ONLY compact JSON: {"person":true|false,"sexual":true|false,"logo":true|false,"text":true|false}. person = any human or body part (including in mirrors, pictures or screens). sexual = any nudity or suggestive content. logo = any brand logo or trademark. text = any clearly readable letters, words or numbers.';
 // 입력 사진에서만: 공간 종류와 문 위치도 읽음. 문은 손잡이·문틀·경첩이 보이는 여닫이/미닫이 문만 (옷장·수납장·냉장고·창은 문이 아님)
-const INPUT_PROMPT = 'Inspect this interior photo. Answer ONLY compact JSON: {"person":true|false,"sexual":true|false,"room":"bedroom|kitchen|bathroom|other","door":"none|left|right|back|unsure"}. person = any human or body part (including in mirrors, pictures or screens). sexual = any nudity or suggestive content. room = what this space mainly is. door = where a real room entrance door (a hinged or sliding door leaf in a door frame that people walk through) is visible: on the left wall, right wall or far back wall; none if no such door is visible. Wardrobes, closets, cabinets, fridges, shower screens, windows and mirrors are NOT doors.';
+const INPUT_PROMPT = 'Inspect this interior photo. Answer ONLY compact JSON: {"person":true|false,"sexual":true|false,"room":"bedroom|kitchen|bathroom|other","door":"none|left|right|back|unsure"}. person = any human or body part (including in mirrors, pictures or screens). sexual = any nudity or suggestive content. room = what this space mainly is. door = the wall where a real door that people walk through (entrance, bathroom or balcony door: a hinged or sliding leaf in a door frame, usually with a handle) is visible: left wall, right wall or far back wall; none if no such door is visible; unsure if you cannot tell. Wardrobes, closets, cabinets, fridges, shower screens, windows and mirrors are NOT doors.';
 let agreed = false;
 async function inspect(env, dataUrl, stage) {
   const keys = stage === "input" ? ["person", "sexual"] : ["person", "sexual", "logo", "text"];
@@ -83,7 +83,8 @@ async function inspect(env, dataUrl, stage) {
       const v = JSON.parse(m[0]);
       const hits = keys.filter(k => v[k] === true);
       hits.room = ["bedroom", "kitchen", "bathroom"].includes(v.room) ? v.room : "bedroom";
-      hits.door = ["none", "left", "right", "back"].includes(v.door) ? v.door : "auto";
+      // 자동 인식이 "없음"이어도 단정하지 않음: 놓친 문을 옷장으로 덮어 버릴 수 있어서 auto(있는 문은 유지) 로 처리
+      hits.door = ["left", "right", "back"].includes(v.door) ? v.door : "auto";
       return hits;
     } catch (e) {
       console.error(`[inspect-${stage}] ${model}`, String(e && e.message));

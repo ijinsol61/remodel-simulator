@@ -198,7 +198,7 @@ footer{font-size:12.5px;color:var(--muted);border-top:1px solid var(--line);padd
         <select id="roomSel"></select>
         <label for="doorSel" style="margin-top:8px">입구 문 위치 (사진 기준)</label>
         <select id="doorSel"></select>
-        <p class="hint" id="roomHint">자동이면 AI가 사진을 보고 정합니다. 옷장·수납장이 문으로 바뀌어 나오면 '사진에 문 없음' 또는 실제 문 위치를 골라 다시 만들어 보세요.</p>
+        <p class="hint" id="roomHint">자동이면 AI가 사진을 보고 정합니다. 결과에서 문이 옷장으로 바뀌거나 옷장이 문으로 바뀌면, 실제 문 위치(또는 '사진에 문 없음')를 직접 골라 다시 만들어 보세요. 직접 고르는 쪽이 가장 정확합니다.</p>
       </div>
       <div class="codebox" id="planbox" hidden>
         <label for="planFile">평면도 (선택)</label>
@@ -1353,7 +1353,7 @@ const SAME_ORIGIN=/workers\.dev$|vercel\.app$|^localhost$|^127\./.test(location.
 let API_URL=SAME_ORIGIN?"/api/remodel":CF_WORKERS[0]+"/api/remodel";
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 /* 서버가 실제로 쓴 공간 종류·문 위치를 결과 표기에 덧붙임 (자동 인식이면 "인식") */
-function roomDoorNote(j){const R=globalThis.REMODEL;if(!j||!j.room||!R.ROOMS)return"";const rn=(R.ROOMS[j.room]||{}).name||j.room,dn=j.door==="auto"?"문 위치 불확실":"문: "+((R.DOORS[j.door]||{}).name||j.door);return" · "+(j.roomAuto?"인식 ":"")+rn+" · "+dn;}
+function roomDoorNote(j){const R=globalThis.REMODEL;if(!j||!j.room||!R.ROOMS)return"";const rn=(R.ROOMS[j.room]||{}).name||j.room,dn=j.door==="auto"?"문: 있는 문 그대로 유지":"문: "+((R.DOORS[j.door]||{}).name||j.door);return" · "+(j.roomAuto?"인식 ":"")+rn+" · "+dn;}
 function loadImg(src){return new Promise((ok,no)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=()=>no(new Error("결과 이미지를 읽지 못했습니다."));i.src=src;});}
 function busyOn(){busy=true;$("go").disabled=true;$("busy").classList.add("on");}
 function busyOff(){$("busy").classList.remove("on");$("busyBar").style.width="0";busy=false;$("go").disabled=false;}
