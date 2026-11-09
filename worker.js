@@ -118,7 +118,7 @@ async function editImage(env, room, plan, prompt, [w, h]) {
 
 async function api(req, env) {
   const t0 = Date.now();
-  if (req.method === "GET") return json(200, { ready: Boolean(env.AI), needsCode: Boolean(env.ACCESS_CODE), engine: "cloudflare", model: "FLUX.2 klein", maxInput: 504, plan: true, roomDoor: true });
+  if (req.method === "GET") return json(200, { ready: Boolean(env.AI), needsCode: Boolean(env.ACCESS_CODE), engine: "cloudflare", model: "FLUX.2 klein", maxInput: 504, plan: true, roomDoor: true, promptVersion: globalThis.REMODEL.PROMPT_VERSION });
   if (req.method !== "POST") return json(405, { code: "method", error: "POST 요청만 받습니다." });
   if (!env.AI) return json(500, { code: "config", error: "Workers AI 연결(AI)이 없습니다. wrangler.jsonc가 저장소에 있는지 확인해 주세요." });
   if (env.ACCESS_CODE && req.headers.get("x-access-code") !== env.ACCESS_CODE) return json(401, { code: "bad_code", error: "시연 코드가 맞지 않습니다." });
