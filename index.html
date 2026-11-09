@@ -1347,8 +1347,10 @@ function drawAfter(){
 let busy=false;
 let API={ready:false,needsCode:false};
 /* AI 서버 주소: workers.dev에서 열면 같은 주소, GitHub Pages 등에서 열면 Cloudflare remodel-ai 서버 */
-const CF_WORKER="https://remodel-ai.ijinsol61.workers.dev";
-const API_URL=/workers\.dev$|vercel\.app$|^localhost$|^127\./.test(location.hostname)?"/api/remodel":CF_WORKER+"/api/remodel";
+/* 새 서버(GitHub 자동 배포, remodel-simulator)를 먼저 찾고, 없으면 예전 서버(remodel-ai)를 씀 */
+const CF_WORKERS=["https://remodel-simulator.ijinsol61.workers.dev","https://remodel-ai.ijinsol61.workers.dev"];
+const SAME_ORIGIN=/workers\.dev$|vercel\.app$|^localhost$|^127\./.test(location.hostname);
+let API_URL=SAME_ORIGIN?"/api/remodel":CF_WORKERS[0]+"/api/remodel";
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 /* 서버가 실제로 쓴 공간 종류·문 위치를 결과 표기에 덧붙임 (자동 인식이면 "인식") */
 function roomDoorNote(j){const R=globalThis.REMODEL;if(!j||!j.room||!R.ROOMS)return"";const rn=(R.ROOMS[j.room]||{}).name||j.room,dn=j.door==="auto"?"문 위치 불확실":"문: "+((R.DOORS[j.door]||{}).name||j.door);return" · "+(j.roomAuto?"인식 ":"")+rn+" · "+dn;}
@@ -1474,9 +1476,11 @@ function engName(){return API.engine==="cloudflare"?"Cloudflare "+(API.model||"F
 async function checkApi(){
   try{
     if(location.protocol==="file:")throw 0;
-    const r=await fetch(API_URL,{method:"GET",cache:"no-store"});
-    if(!r.ok)throw 0;
-    const j=await r.json();
+    let j=null;
+    for(const u of SAME_ORIGIN?["/api/remodel"]:CF_WORKERS.map(w=>w+"/api/remodel")){
+      try{const r=await fetch(u,{method:"GET",cache:"no-store"});if(!r.ok)continue;const t=await r.json();if(t&&t.ready){j=t;API_URL=u;break;}}catch(_){}
+    }
+    if(!j)throw 0;
     API={ready:!!j.ready,needsCode:!!j.needsCode,model:j.model,engine:j.engine||"openai",maxInput:j.maxInput,plan:!!j.plan,roomDoor:!!j.roomDoor};
   }catch(e){API={ready:false,needsCode:false};}
   $("codebox").hidden=!(API.ready&&API.needsCode);$("planbox").hidden=!(API.ready&&API.plan);$("roombox").hidden=!(API.ready&&API.roomDoor);

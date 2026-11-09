@@ -1,0 +1,16 @@
+// Cloudflare 설정 파일 (고칠 필요 없음)
+// - 사이트 화면(index.html 등)과 AI 서버(worker.js)를 한 주소로 올립니다.
+// - "ai" 줄이 Workers AI를 연결합니다. API 키가 필요 없습니다.
+// - GitHub에 파일을 올리면 Cloudflare가 자동으로 다시 배포합니다.
+{
+  "name": "remodel-simulator",
+  "main": "worker.js",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": ".",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"]
+  },
+  "ai": { "binding": "AI" },
+  "observability": { "enabled": true }
+}
