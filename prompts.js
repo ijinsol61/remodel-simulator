@@ -64,7 +64,7 @@ const STYLES = {
 
 // 모든 스타일 공통: 시점만 고정, 나머지는 스타일에 맞게 재설계
 const BASE_PROMPT =
-  "Create an original photorealistic remodeling proposal for the room in the attached photo. The shared comparison constraint is the exact VIEWPOINT: same camera location and height, same lens and perspective, same framing and slight camera roll, same aspect ratio and composition. Do not move the camera, zoom, straighten the view into a different composition or convert it into a wide-angle showroom. Keep the real room size, wall positions, window and door openings and ceiling height; do not enlarge the room. Furniture types, positions and proportions, lighting, wall and floor finishes, molding, storage, the entrance door leaf, frame and handle, and the window treatment may all be redesigned according to the concept below; do not keep the original furniture arrangement just because it is in the photo. Remove personal photographs, clothes racks, fans, cables, clutter, personal objects, branding, writing and figurines. Use generic independently designed furniture, believable materials and joints, grounded contact shadows and soft natural daylight. Output one complete photorealistic interior photograph only";
+  "Create an original photorealistic remodeling proposal for the room in the attached photo. The shared comparison constraint is the exact VIEWPOINT: same camera location and height, same lens and perspective, same framing and slight camera roll, same aspect ratio and composition. Do not move the camera, zoom, straighten the view into a different composition or convert it into a wide-angle showroom. Keep the real room size, wall positions, window and door openings and ceiling height; do not enlarge the room. Furniture types, positions and proportions, lighting, wall and floor finishes, molding, storage, the entrance door leaf, frame and handle, and the window treatment may all be redesigned according to the concept below; do not keep the original furniture arrangement just because it is in the photo. Restyle the entrance door only if a door is actually visible in the photo, in its existing position; if no door is visible, add none, and never turn wardrobes, cabinets, the fridge or tall panels into doors. Remove personal photographs, clothes racks, fans, cables, clutter, personal objects, branding, writing and figurines. Use generic independently designed furniture, believable materials and joints, grounded contact shadows and soft natural daylight. Output one complete photorealistic interior photograph only";
 
 const NEG_PROMPT =
   "people, persons, faces, bodies, hands, pets, text, letters, readable writing, logos, watermarks, signatures, captions, UI, collage, brand names, copied branded products, named designer furniture, paintings, posters, artwork, pictures, calligraphy, characters, any nudity or suggestive content, moved windows, removed walls, enlarged room, changed camera position, distorted perspective";
@@ -101,10 +101,61 @@ const SC_SHORT = {
   single: "Small one-person room: sleeping, studying, storage and a small meal all fit, with a clear walking route from the door"
 };
 const END_SHORT = "The photo shows only the quiet interior: plain unmarked surfaces, plain fabrics, generic unbranded furniture, soft natural light";
-function buildShortPrompt(scenario, style, hasPlan) {
-  const plan = hasPlan ? ". Image 2 is the floor plan of this same room: place the bed, desk, storage and dining spot where the plan shows them, seen from the camera of image 1" : "";
-  return `${BASE_SHORT}. ${SC_SHORT[scenario]}. ${SHORT[style]}${plan}. ${END_SHORT}.`;
+
+// ---------------------------------------------------------------------
+//  공간 종류·입구 문 위치 (2026-11-09 추가)
+//  문제: 사진에 문이 안 보이는데 "입구 문을 바꿔라"라고 하면, AI가 옷장·수납장을 문으로 바꿔 그림.
+//       주방·욕실 사진에도 침대·책상·식탁을 넣으라고 해서 엉뚱한 가구가 생김.
+//  해결: 공간 종류(방/주방/욕실)와 문 위치(없음/왼쪽/오른쪽/정면)를 지시문에 넣고,
+//       "문은 그 한 곳뿐, 나머지 키 큰 가구는 가구로 둔다"를 항상 붙입니다.
+// ---------------------------------------------------------------------
+const ROOMS = {
+  auto:     { name: "자동 인식" },
+  bedroom:  { name: "방(침실)" },
+  kitchen:  { name: "주방" },
+  bathroom: { name: "욕실" }
+};
+const DOORS = {
+  auto:  { name: "자동 인식" },
+  none:  { name: "사진에 문 없음", en: "" },
+  left:  { name: "왼쪽 벽", en: "on the left wall" },
+  right: { name: "오른쪽 벽", en: "on the right wall" },
+  back:  { name: "정면(안쪽) 벽", en: "on the far back wall" }
+};
+
+// 스타일별 마감만(가구 제외) — 주방·욕실에 침대·책상이 들어가지 않게
+const FINISH_SHORT = {
+  nordic: "Scandinavian concept, varied natural palette: warm ivory walls with one sage-green accent, pale matte oak and warm-white surfaces, small wood pulls, brushed-nickel fittings, one or two plants, soft-white light and clean daylight",
+  minimal: "Minimalist concept, limited palette of warm grey, matte ivory, pale ash and a little charcoal: flush handleless fronts with aligned seams, flat plain surfaces, slim linear lighting, very slim frames, nothing on display",
+  hanok: "Contemporary Korean concept: warm off-white hanji-textured walls, medium natural brown timber with fine chamfered edges, small dark-bronze pulls, thin timber lattice with translucent paper-like panels at the window, slim modern ceiling light and concealed linear glow, neutral soft daylight; not Japanese"
+};
+const ROOM_SHORT = {
+  kitchen: "Small one-person kitchen: keep the sink, cooktop, gas and water pipe positions; compact upper and lower cabinets, a clear prep counter, a fridge space and a small eating ledge only if there is room. No bed, no desk, no sofa",
+  bathroom: "Small one-person bathroom: keep the toilet, washbasin, shower and floor drain positions; slip-resistant floor tiles, wall tiles, a compact vanity with closed storage, a mirror cabinet with plain glass and a towel rail. No bed, no desk, no dining table, no sofa"
+};
+const DOOR_STYLE = {
+  nordic: "a matte terracotta slab with slim oak jamb and short brushed-nickel lever",
+  minimal: "a flush matte warm-greige slab with a short matte black lever",
+  hanok: "a medium-brown wood veneer slab with a small dark-bronze lever"
+};
+// 문 지시: 문이 보이는 곳만, 나머지는 절대 문으로 바꾸지 않음
+function doorClause(style, door) {
+  const keepFurn = "Wardrobes, cabinets, the fridge, tall storage and wall panels stay furniture: never turn them into doors and never add a new door";
+  if (door === "none") return `No door is visible in image 1, so draw no door at all. ${keepFurn}`;
+  if (DOORS[door] && DOORS[door].en) return `The only door is the existing opening ${DOORS[door].en}; keep it exactly there and restyle just that door as ${DOOR_STYLE[style]}. ${keepFurn}`;
+  return `Keep any existing door exactly where it is and restyle it as ${DOOR_STYLE[style]}; if no door is clearly visible, draw none. ${keepFurn}`;
+}
+// 스타일 문장에서 "Entrance door replaced ..." 문장을 빼고 doorClause로 대신함
+const stripDoor = s => s.replace(/\s*Entrance door replaced[^.]*\./, "");
+
+function buildShortPrompt(scenario, style, hasPlan, opts) {
+  const o = opts || {};
+  const room = ROOM_SHORT[o.room] ? o.room : "bedroom";
+  const plan = hasPlan ? ". Image 2 is the floor plan of this same room: place the furniture where the plan shows it, seen from the camera of image 1" : "";
+  const base = BASE_SHORT.replace(", the entrance door and window treatment", " and window treatment");
+  const body = room === "bedroom" ? `${SC_SHORT[scenario]}. ${stripDoor(SHORT[style])}` : `${ROOM_SHORT[room]}. ${FINISH_SHORT[style]}`;
+  return `${base}. ${body}. ${doorClause(style, o.door)}${plan}. ${END_SHORT}.`;
 }
 
-globalThis.REMODEL = { SCENARIOS, STYLES, BASE_PROMPT, NEG_PROMPT, NEG_HANOK, buildPrompt, buildRenderPrompt, buildShortPrompt };
+globalThis.REMODEL = { SCENARIOS, STYLES, ROOMS, DOORS, BASE_PROMPT, NEG_PROMPT, NEG_HANOK, buildPrompt, buildRenderPrompt, buildShortPrompt, doorClause };
 })();

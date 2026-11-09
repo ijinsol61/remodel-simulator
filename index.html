@@ -82,7 +82,7 @@ header.top .sub{font-size:13px;color:var(--muted);margin-top:2px}
 button:focus-visible,.sample:focus-visible,.drop:focus-within{outline:2px solid var(--accent);outline-offset:2px}
 .codebox{display:flex;flex-direction:column;gap:4px;font-size:13px}
 .codebox[hidden]{display:none}
-.codebox input{font:inherit;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--paper);color:var(--ink)}
+.codebox select,.codebox input{font:inherit;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--paper);color:var(--ink)}
 .save{appearance:none;border:1px solid var(--line);border-radius:8px;background:var(--paper);color:var(--ink);font:inherit;font-weight:500;padding:10px 16px;cursor:pointer}
 .save:disabled{opacity:.5;cursor:not-allowed}
 .chip.err{border-color:#b3452e;color:#b3452e;background:transparent}
@@ -192,6 +192,13 @@ footer{font-size:12.5px;color:var(--muted);border-top:1px solid var(--line);padd
       <div class="codebox" id="codebox" hidden>
         <label for="code">시연 코드</label>
         <input id="code" type="password" autocomplete="off" placeholder="팀에서 정한 코드">
+      </div>
+      <div class="codebox" id="roombox" hidden>
+        <label for="roomSel">공간 종류</label>
+        <select id="roomSel"></select>
+        <label for="doorSel" style="margin-top:8px">입구 문 위치 (사진 기준)</label>
+        <select id="doorSel"></select>
+        <p class="hint" id="roomHint">자동이면 AI가 사진을 보고 정합니다. 옷장·수납장이 문으로 바뀌어 나오면 '사진에 문 없음' 또는 실제 문 위치를 골라 다시 만들어 보세요.</p>
       </div>
       <div class="codebox" id="planbox" hidden>
         <label for="planFile">평면도 (선택)</label>
@@ -1276,7 +1283,7 @@ function buildOpts(el,data,name){
 }
 function syncRadios(){$("scenario-"+S.scenario).checked=true;$("style-"+S.style).checked=true;}
 
-function promptText(){return API.ready&&API.engine==="cloudflare"&&globalThis.REMODEL.buildShortPrompt?globalThis.REMODEL.buildShortPrompt(S.scenario,S.style,!!(S.plan&&API.plan)):buildPrompt(S.scenario,S.style);}
+function promptText(){return API.ready&&API.engine==="cloudflare"&&globalThis.REMODEL.buildShortPrompt?globalThis.REMODEL.buildShortPrompt(S.scenario,S.style,!!(S.plan&&API.plan),{room:$("roomSel").value,door:$("doorSel").value}):buildPrompt(S.scenario,S.style);}
 function refresh(){
   document.querySelectorAll(".sample").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.k===S.source)));
   $("drop").classList.toggle("on",S.source==="upload");
@@ -1343,6 +1350,8 @@ let API={ready:false,needsCode:false};
 const CF_WORKER="https://remodel-ai.ijinsol61.workers.dev";
 const API_URL=/workers\.dev$|vercel\.app$|^localhost$|^127\./.test(location.hostname)?"/api/remodel":CF_WORKER+"/api/remodel";
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+/* 서버가 실제로 쓴 공간 종류·문 위치를 결과 표기에 덧붙임 (자동 인식이면 "인식") */
+function roomDoorNote(j){const R=globalThis.REMODEL;if(!j||!j.room||!R.ROOMS)return"";const rn=(R.ROOMS[j.room]||{}).name||j.room,dn=j.door==="auto"?"문 위치 불확실":"문: "+((R.DOORS[j.door]||{}).name||j.door);return" · "+(j.roomAuto?"인식 ":"")+rn+" · "+dn;}
 function loadImg(src){return new Promise((ok,no)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=()=>no(new Error("결과 이미지를 읽지 못했습니다."));i.src=src;});}
 function busyOn(){busy=true;$("go").disabled=true;$("busy").classList.add("on");}
 function busyOff(){$("busy").classList.remove("on");$("busyBar").style.width="0";busy=false;$("go").disabled=false;}
@@ -1364,11 +1373,11 @@ async function run(instant){
       const mx=API.maxInput||1536,prep=prepImage(S.img,mx),planD=S.plan&&API.plan?prepImage(S.plan,mx).data:undefined,code=($("code").value||"").trim();
       const ac=new AbortController(),kill=setTimeout(()=>ac.abort(),310000);
       let r,j;
-      try{r=await fetch(API_URL,{method:"POST",signal:ac.signal,headers:{"Content-Type":"application/json","x-access-code":code},body:JSON.stringify({image:prep.data,plan:planD,aspect:prep.aspect,scenario:sc,style:st})});j=await r.json().catch(()=>({}));}
+      try{r=await fetch(API_URL,{method:"POST",signal:ac.signal,headers:{"Content-Type":"application/json","x-access-code":code},body:JSON.stringify({image:prep.data,plan:planD,aspect:prep.aspect,scenario:sc,style:st,room:$("roomSel").value,door:$("doorSel").value})});j=await r.json().catch(()=>({}));}
       finally{clearTimeout(kill);}
       if(!r.ok){const e=new Error(j.error||"AI 변환에 실패했습니다.");e.code=j.code;e.retryable=j.retryable!==false&&j.code!=="bad_code"&&j.code!=="config"&&j.code!=="quota"&&j.code!=="input_blocked";throw e;}
       const img=await loadImg(j.image);
-      S.result={scenario:sc,style:st,img,ai:true,aiSrc:engName()+(j.plan?" · 평면도 반영":""),secs:Math.round((Date.now()-t0)/1000)};
+      S.result={scenario:sc,style:st,img,ai:true,aiSrc:engName()+(j.plan?" · 평면도 반영":"")+roomDoorNote(j),secs:Math.round((Date.now()-t0)/1000)};
       const ck=S.img.src+"|"+sc;(APIC[ck]=APIC[ck]||{})[st]=img;
       S.error="";
     }catch(e){
@@ -1468,9 +1477,9 @@ async function checkApi(){
     const r=await fetch(API_URL,{method:"GET",cache:"no-store"});
     if(!r.ok)throw 0;
     const j=await r.json();
-    API={ready:!!j.ready,needsCode:!!j.needsCode,model:j.model,engine:j.engine||"openai",maxInput:j.maxInput,plan:!!j.plan};
+    API={ready:!!j.ready,needsCode:!!j.needsCode,model:j.model,engine:j.engine||"openai",maxInput:j.maxInput,plan:!!j.plan,roomDoor:!!j.roomDoor};
   }catch(e){API={ready:false,needsCode:false};}
-  $("codebox").hidden=!(API.ready&&API.needsCode);$("planbox").hidden=!(API.ready&&API.plan);
+  $("codebox").hidden=!(API.ready&&API.needsCode);$("planbox").hidden=!(API.ready&&API.plan);$("roombox").hidden=!(API.ready&&API.roomDoor);
   updatePill();
 }
 function saveCompare(){
@@ -1518,6 +1527,7 @@ $("copy").addEventListener("click",async()=>{
 });
 
 buildSamples();buildExamples();buildOpts($("scenarios"),SCENARIOS,"scenario");buildOpts($("styles"),STYLES,"style");
+[["roomSel","ROOMS"],["doorSel","DOORS"]].forEach(([id,k])=>{const T=globalThis.REMODEL[k]||{};Object.entries(T).forEach(([v,o])=>{const op=document.createElement("option");op.value=v;op.textContent=o.name;$(id).append(op);});$(id).addEventListener("change",()=>refresh());});
 if(EXS.length){S.source="ex:"+EXS[0].id;S.style="nordic";S.scenario=EXS[0].scenario||"single";syncRadios();showExample();}else{syncRadios();run(true);}
 initPlan();checkApi();initClaude(0);
 $("guideOn").addEventListener("change",refresh);
